@@ -412,7 +412,7 @@ export default function App({ session }) {
     return allEvents.filter(e => {
       if (e.year !== activeYear) return false;
       if (filters.hidePersonal && e.series === "Personal") return false;
-      if (filters.series.length && !filters.series.includes(e.series)) return false;
+      if (filters.series.length && filters.series.includes(e.series)) return false;
       if (filters.country && e.country !== filters.country) return false;
       if (filters.camp && !e.camp) return false;
       if (filters.nurbOnly && !e.circuit?.toLowerCase().includes('nürburg') && !e.circuit?.toLowerCase().includes('nurburgring')) return false;
@@ -509,7 +509,7 @@ export default function App({ session }) {
       <div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
           <SectionLabel T={T} style={{ marginBottom:0 }}>Series</SectionLabel>
-          {filters.series.length>0 && <span onClick={()=>setFilters(f=>({...f,series:[]}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear</span>}
+          {filters.series.length>0 && <span onClick={()=>setFilters(f=>({...f,series:[]}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>show all</span>}
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
           {ALL_SERIES.map(s => {
