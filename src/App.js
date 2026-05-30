@@ -262,7 +262,7 @@ function AuthModal({ T, onClose }) {
     const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: null } });
     if (error) { setError(error.message); setLoading(false); return; }
     if (data.user) {
-      await supabase.from("profiles").update({ username }).eq("id", data.user.id);
+      await supabase.from("profiles").upsert({ id: data.user.id, email, username, role: "user" }, { onConflict: "id" });
       setMessage("Account created! Check your email to confirm your account, then log in.");
       setMode("login");
     }
