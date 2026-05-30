@@ -410,7 +410,6 @@ export default function App() {
             <button onClick={()=>setTzOpen(true)} style={{ padding:"5px 12px", borderRadius:5, border:"1px solid #6A9FD840", background:darkMode?"#1A1A20":T.bgCard, color:"#6A9FD8", fontSize:12, cursor:"pointer", fontWeight:500 }}>
               🕐 {tzAbbr(myTz)}{compareTz ? ` · ${tzAbbr(compareTz)}` : ""}
             </button>
-            <button onClick={()=>setAdminOpen(true)} style={{ padding:"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize:12, cursor:"pointer", fontWeight:500 }}>+ Add</button>
           </>}
 
           {/* View switcher — always shown */}
