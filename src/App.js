@@ -343,7 +343,7 @@ export default function App({ session }) {
       });
   }, [session]);
 
-  # eslint-disable-next-line no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const handleHideEvent = async (id) => {
     if (!session) { setAuthOpen(true); return; }
     setHiddenEvents(h => ({ ...h, [id]: true, [String(id)]: true }));
