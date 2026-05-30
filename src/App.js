@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ function AuthModal({ T, onClose }) {
     if (error) { setError(error.message); setLoading(false); return; }
     if (data.user) {
       await supabase.from("profiles").update({ username }).eq("id", data.user.id);
-      setMessage("Account created! You can now log in.");
+      setMessage("Account created! Check your email to confirm your account, then log in.");
       setMode("login");
     }
     setLoading(false);
@@ -799,19 +799,72 @@ function TzRow({ T, label, time, primary }) {
 
 // ─── TIMELINE VIEW ───────────────────────────────────────────────────────────
 function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, compareTz }) {
-  if (!Object.keys(byMonth).length) return <div style={{ textAlign:"center", color:T.textDim, padding:"60px 0", fontSize:14 }}>No events match your filters.</div>;
+  const upcomingRef = useRef(null);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  useEffect(() => {
+    if (upcomingRef.current) {
+      upcomingRef.current.scrollIntoView({ behavior: "instant", block: "start" });
+    }
+  }, []);
+
+
+
+  // Split months into upcoming and past
+  const allMonthKeys = Object.keys(byMonth).sort((a,b)=>Number(a)-Number(b));
+  const upcomingMonths = [];
+  const pastMonths = [];
+
+  allMonthKeys.forEach(mo => {
+    const monthEvents = byMonth[mo];
+    const hasUpcoming = monthEvents.some(e => new Date(e.date + "T12:00:00") >= today);
+    const hasPast = monthEvents.some(e => new Date(e.date + "T12:00:00") < today);
+    if (hasUpcoming && hasPast) {
+      // Split the month
+      const upcoming = monthEvents.filter(e => new Date(e.date + "T12:00:00") >= today);
+      const past = monthEvents.filter(e => new Date(e.date + "T12:00:00") < today);
+      if (upcoming.length) upcomingMonths.push({ mo, events: upcoming });
+      if (past.length) pastMonths.push({ mo, events: past });
+    } else if (hasUpcoming) {
+      upcomingMonths.push({ mo, events: monthEvents });
+    } else {
+      pastMonths.push({ mo, events: monthEvents });
+    }
+  });
+
+  // Past races oldest first (scroll up reveals further back in time)
+  pastMonths.sort((a,b) => Number(a.mo) - Number(b.mo));
+
+  if (!allMonthKeys.length) return <div style={{ textAlign:"center", color:T.textDim, padding:"60px 0", fontSize:14 }}>No events match your filters.</div>;
+
+  const renderMonth = ({ mo, events }) => (
+    <div key={mo + events[0]?.date} style={{ marginBottom:28 }}>
+      <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:T.textFaint, textTransform:"uppercase", marginBottom:10, paddingBottom:8, borderBottom:`1px solid ${T.border}` }}>
+        {MONTHS_LONG[Number(mo)]}
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+        {events.map(e=><EventRow T={T} key={e.id} event={e} attended={attendance[e.id]} onSelect={()=>onSelect(e)} onToggleAttend={()=>onToggleAttend(e.id)} myTz={myTz} compareTz={compareTz} />)}
+      </div>
+    </div>
+  );
+
   return (
     <div>
-      {Object.keys(byMonth).sort((a,b)=>Number(a)-Number(b)).map(mo => (
-        <div key={mo} style={{ marginBottom:28 }}>
-          <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:T.textFaint, textTransform:"uppercase", marginBottom:10, paddingBottom:8, borderBottom:`1px solid ${T.border}` }}>
-            {MONTHS_LONG[Number(mo)]}
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-            {byMonth[mo].map(e=><EventRow T={T} key={e.id} event={e} attended={attendance[e.id]} onSelect={()=>onSelect(e)} onToggleAttend={()=>onToggleAttend(e.id)} myTz={myTz} compareTz={compareTz} />)}
-          </div>
+      {/* Past races — oldest at top, scroll up to go back in time */}
+      {pastMonths.map(renderMonth)}
+
+      {/* Divider — this is the scroll target */}
+      {pastMonths.length > 0 && (
+        <div ref={upcomingRef} style={{ display:"flex", alignItems:"center", gap:10, margin:"8px 0 24px" }}>
+          <div style={{ flex:1, height:1, background:T.border }} />
+          <div style={{ fontSize:10, fontWeight:700, color:T.textFaint, letterSpacing:1.5, textTransform:"uppercase", whiteSpace:"nowrap" }}>Upcoming</div>
+          <div style={{ flex:1, height:1, background:T.border }} />
         </div>
-      ))}
+      )}
+
+      {/* Upcoming races — soonest first, scroll down into future */}
+      {upcomingMonths.map(renderMonth)}
     </div>
   );
 }
