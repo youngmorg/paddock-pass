@@ -421,6 +421,9 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {/* + Add always visible */}
+          <button onClick={()=>setAdminOpen(true)} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>+ Add</button>
         </div>
       </header>
 
