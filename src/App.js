@@ -115,6 +115,7 @@ const SERIES_META = {
   "Cultural":       { color: "#666666" },
   "Nurburgring":    { color: "#E8002D" },
   "Formula E":      { color: "#00AAFF" },
+  "MotoGP":         { color: "#CC0000" },
   "Personal":       { color: "#7B68EE" },
 };
 
