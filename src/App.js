@@ -114,6 +114,7 @@ const SERIES_META = {
   "24hr":           { color: "#0D7A5F" },
   "Cultural":       { color: "#666666" },
   "Nurburgring":    { color: "#E8002D" },
+  "Formula E":      { color: "#00AAFF" },
   "Personal":       { color: "#7B68EE" },
 };
 
