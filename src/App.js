@@ -373,6 +373,7 @@ export default function App({ session }) {
   }, [filtered]);
 
   const toggleSeries = s => setFilters(f => ({ ...f, series: f.series.includes(s) ? f.series.filter(x=>x!==s) : [...f.series, s] }));
+  const toggleAttendance = id => setAttendance(a => ({ ...a, [id]: !a[id] }));
 
   const [editingEvent, setEditingEvent] = useState(null);
 
@@ -550,8 +551,8 @@ export default function App({ session }) {
             ))}
           </div>
 
-          {/* + Add always visible */}
-          <button onClick={handleAddClick} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>+ Add</button>
+          {/* + Add — desktop only */}
+          {!isMobile && <button onClick={handleAddClick} style={{ padding:"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize:12, cursor:"pointer", fontWeight:600 }}>+ Add</button>}
 
           {/* Login / user button */}
           {session ? (
