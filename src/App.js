@@ -113,6 +113,7 @@ const SERIES_META = {
   "Car Week":       { color: "#B59A5C" },
   "24hr":           { color: "#0D7A5F" },
   "Cultural":       { color: "#666666" },
+  "Nurburgring":    { color: "#E8002D" },
   "Personal":       { color: "#7B68EE" },
 };
 
