@@ -314,6 +314,7 @@ export default function App({ session }) {
   const [activeYear, setActiveYear] = useState(2026);
   const [view, setView] = useState("timeline");
   const [filters, setFilters] = useState({ hiddenSeries: [], country: "", camp: false, intl: false, search: "", hidePersonal: false });
+  const [searchInput, setSearchInput] = useState("");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
@@ -400,6 +401,11 @@ export default function App({ session }) {
     if (!session) return;
     await supabase.from("user_preferences").upsert({ id: session.user.id, hidden_series: hiddenSeries, updated_at: new Date().toISOString() }, { onConflict: "id" });
   };
+
+  useEffect(() => {
+    const t = setTimeout(() => setFilters(f => ({ ...f, search: searchInput })), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const requireAuth = (action) => { if (!session) { setAuthOpen(true); return; } action(); };
   const handleAddClick = () => requireAuth(() => setAdminOpen(true));
@@ -531,7 +537,7 @@ export default function App({ session }) {
 
       <div>
         <SectionLabel T={T}>Search</SectionLabel>
-        <input value={filters.search} onChange={e=>setFilters(f=>({...f,search:e.target.value}))} placeholder="Event, circuit…" style={inpSty} />
+        <input value={searchInput} onChange={e=>setSearchInput(e.target.value)} placeholder="Event, circuit…" style={inpSty} />
       </div>
 
       <div>
