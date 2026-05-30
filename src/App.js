@@ -921,23 +921,25 @@ function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, 
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
+  const totalRows = Math.ceil((firstDay + daysInMonth) / 7);
+
   return (
-    <div>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 120px)", minHeight:400 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, flexShrink:0 }}>
         <button onClick={()=>setMonth(m=>(m+11)%12)} style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:12, cursor:"pointer", fontWeight:500 }}>← Prev</button>
         <span style={{ fontSize:16, fontWeight:600, color:T.text }}>{MONTHS_LONG[month]} {year}</span>
         <button onClick={()=>setMonth(m=>(m+1)%12)} style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:12, cursor:"pointer", fontWeight:500 }}>Next →</button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2, marginBottom:4 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2, marginBottom:4, flexShrink:0 }}>
         {DOW.map(d=><div key={d} style={{ textAlign:"center", fontSize:10, fontWeight:700, color:T.textFaint, padding:"4px 0", letterSpacing:1 }}>{d}</div>)}
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gridTemplateRows:`repeat(${totalRows}, 1fr)`, gap:2, flex:1, minHeight:0 }}>
         {cells.map((d,i) => {
-          if (!d) return <div key={`e${i}`} style={{ minHeight:90, background:T.bgSubtle, borderRadius:5 }} />;
+          if (!d) return <div key={`e${i}`} style={{ background:T.bgSubtle, borderRadius:5 }} />;
           const dayEvents = eventsByDay[d] || [];
           const isToday = today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
           return (
-            <div key={d} style={{ minHeight:90, background:T.bgCard, borderRadius:5, border:`1px solid ${isToday?"#E8502A40":T.border}`, padding:"5px 4px" }}>
+            <div key={d} style={{ background:T.bgCard, borderRadius:5, border:`1px solid ${isToday?"#E8502A40":T.border}`, padding:"5px 4px", overflow:"hidden", minHeight:0 }}>
               <div style={{ fontSize:11, fontWeight:isToday?700:400, color:isToday?"#E8502A":T.textDim, marginBottom:3, textAlign:"right" }}>{d}</div>
               <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
                 {dayEvents.slice(0,3).map(e => {
