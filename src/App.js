@@ -282,7 +282,7 @@ function AuthModal({ T, onClose }) {
           {mode === "signup" && (
             <div>
               <div style={{ fontSize:11, color:T.textDim, marginBottom:4 }}>Username</div>
-              <input style={inpSty} placeholder="e.g. morganraynal" value={username} onChange={e=>setUsername(e.target.value)} />
+              <input style={inpSty} placeholder="e.g. johndoe" value={username} onChange={e=>setUsername(e.target.value)} />
             </div>
           )}
           <div>
