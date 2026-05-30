@@ -312,7 +312,7 @@ export default function App({ session }) {
 
   const [activeYear, setActiveYear] = useState(2026);
   const [view, setView] = useState("timeline");
-  const [filters, setFilters] = useState({ series: [], country: "", camp: false, intl: false, search: "", hidePersonal: false });
+  const [filters, setFilters] = useState({ series: [], country: "", camp: false, intl: false, search: "", hidePersonal: false, nurbOnly: false });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
@@ -414,6 +414,7 @@ export default function App({ session }) {
       if (filters.series.length && !filters.series.includes(e.series)) return false;
       if (filters.country && e.country !== filters.country) return false;
       if (filters.camp && !e.camp) return false;
+      if (filters.nurbOnly && !e.circuit?.toLowerCase().includes('nürburg') && !e.circuit?.toLowerCase().includes('nurburgring')) return false;
       if (filters.intl && !e.intl) return false;
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -535,6 +536,7 @@ export default function App({ session }) {
         <Toggle T={T} label="Campable only"      value={filters.camp}         onChange={v=>setFilters(f=>({...f,camp:v}))} />
         <Toggle T={T} label="International only" value={filters.intl}         onChange={v=>setFilters(f=>({...f,intl:v}))} />
         <Toggle T={T} label="Hide personal"      value={filters.hidePersonal} onChange={v=>setFilters(f=>({...f,hidePersonal:v}))} />
+        <Toggle T={T} label="🟢 Nürburgring only"  value={filters.nurbOnly}      onChange={v=>setFilters(f=>({...f,nurbOnly:v}))} />
       </div>
 
       <div style={{ marginTop:"auto", borderTop:`1px solid ${T.border}`, paddingTop:12, display:"flex", flexDirection:"column", gap:6 }}>
