@@ -325,6 +325,37 @@ export default function App({ session }) {
     try { return JSON.parse(localStorage.getItem("rcAttendance") || "{}"); } catch { return {}; }
   });
 
+  const [hiddenEvents, setHiddenEvents] = useState({});
+
+  useEffect(() => {
+    if (!session) return;
+    supabase
+      .from("hidden_events")
+      .select("event_id")
+      .eq("user_id", session.user.id)
+      .then(({ data }) => {
+        if (data) {
+          const hidden = {};
+          data.forEach(r => { hidden[r.event_id] = true; });
+          setHiddenEvents(hidden);
+        }
+      });
+  }, [session]);
+
+  const handleHideEvent = async (id) => {
+    if (!session) { setAuthOpen(true); return; }
+    console.log("hiding event id:", id, typeof id);
+    setHiddenEvents(h => { const next = { ...h, [id]: true, [String(id)]: true }; console.log("new hiddenEvents:", next); return next; });
+    setSelectedEvent(null);
+    await supabase.from("hidden_events").upsert({ user_id: session.user.id, event_id: id }, { onConflict: "user_id,event_id" });
+  };
+
+  const handleUnhideAll = async () => {
+    if (!session) return;
+    setHiddenEvents({});
+    await supabase.from("hidden_events").delete().eq("user_id", session.user.id);
+  };
+
   const requireAuth = (action) => { if (!session) { setAuthOpen(true); return; } action(); };
   const handleAddClick = () => requireAuth(() => setAdminOpen(true));
   const handleToggleAttendance = (id) => requireAuth(() => setAttendance(a => ({ ...a, [id]: !a[id] })));
@@ -359,8 +390,8 @@ export default function App({ session }) {
         if (!e.name.toLowerCase().includes(q) && !e.circuit.toLowerCase().includes(q) && !e.series.toLowerCase().includes(q)) return false;
       }
       return true;
-    }).sort((a,b) => new Date(a.date) - new Date(b.date));
-  }, [allEvents, activeYear, filters]);
+    }).filter(e => !hiddenEvents[e.id] && !hiddenEvents[String(e.id)]).sort((a,b) => new Date(a.date) - new Date(b.date));
+  }, [allEvents, activeYear, filters, hiddenEvents]);
 
   const byMonth = useMemo(() => {
     const m = {};
@@ -412,7 +443,7 @@ export default function App({ session }) {
   const inpSty = { width:"100%", background:T.bgInput, border:`1px solid ${T.border2}`, borderRadius:5, padding:"6px 9px", color:T.text, fontSize:12 };
 
   // Sidebar content (shared between mobile overlay and desktop panel)
-  const SidebarContent = () => (
+  const SidebarContent = ({ hiddenEvents, handleUnhideAll, session }) => (
     <>
       {/* On mobile: show dark/light, timezone, add at top of sidebar */}
       {isMobile && (
@@ -482,6 +513,11 @@ export default function App({ session }) {
         <StatR T={T} label="Attended"      value={attendedCount}   accent="#E8502A" />
         <StatR T={T} label="International" value={filtered.filter(e=>e.intl).length} accent="#3DAA4E" />
         <StatR T={T} label="Campable"      value={filtered.filter(e=>e.camp).length}  accent="#B86B1B" />
+        {session && Object.keys(hiddenEvents).length > 0 && (
+          <button onClick={handleUnhideAll} style={{ marginTop:4, padding:"6px", borderRadius:5, border:"1px solid #6A9FD840", background:"transparent", color:"#6A9FD8", fontSize:11, cursor:"pointer" }}>
+            Unhide {Object.keys(hiddenEvents).length} hidden event{Object.keys(hiddenEvents).length > 1 ? "s" : ""}
+          </button>
+        )}
       </div>
     </>
   );
@@ -600,7 +636,7 @@ export default function App({ session }) {
             {isMobile && (
               <button onClick={()=>setSidebarOpen(false)} style={{ alignSelf:"flex-end", background:"none", border:"none", color:T.textMid, fontSize:18, cursor:"pointer", marginBottom:-8 }}>✕</button>
             )}
-            <SidebarContent />
+            <SidebarContent hiddenEvents={hiddenEvents} handleUnhideAll={handleUnhideAll} session={session} />
           </aside>
         )}
 
@@ -624,7 +660,7 @@ export default function App({ session }) {
       {/* MODALS */}
       {selectedEvent && (
         <Modal T={T} onClose={()=>setSelectedEvent(null)}>
-          <EventDetail T={T} event={selectedEvent} attended={attendance[selectedEvent.id]} onToggleAttend={()=>handleToggleAttendance(selectedEvent.id)} myTz={myTz} compareTz={compareTz} onEdit={editCustomEvent} onDelete={deleteCustomEvent} />
+          <EventDetail T={T} event={selectedEvent} attended={attendance[selectedEvent.id]} onToggleAttend={()=>handleToggleAttendance(selectedEvent.id)} myTz={myTz} compareTz={compareTz} onEdit={editCustomEvent} onDelete={deleteCustomEvent} onHide={handleHideEvent} />
         </Modal>
       )}
 
@@ -889,7 +925,7 @@ function EventCard({ T, event:e, attended, onSelect, onToggleAttend }) {
 }
 
 // ─── EVENT DETAIL MODAL ──────────────────────────────────────────────────────
-function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, onEdit, onDelete }) {
+function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, onEdit, onDelete, onHide }) {
   const meta = SERIES_META[e.series] || { color:"#888" };
   const start = new Date(e.date + "T12:00:00");
   const end = e.endDate ? new Date(e.endDate + "T12:00:00") : null;
@@ -959,6 +995,12 @@ function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, on
         </div>
       )}
       {e.notes && <div style={{ marginTop:10, padding:"9px 11px", background:T.bgInput, borderRadius:5, border:`1px solid ${T.border}`, fontSize:12, color:T.textMid, fontStyle:"italic" }}>{e.notes}</div>}
+
+      {onHide && typeof e.id === "number" && e.id <= 53 && (
+        <div style={{ marginTop:10 }}>
+          <button onClick={()=>onHide(e.id)} style={{ width:"100%", padding:"7px", borderRadius:6, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textDim, fontSize:12, cursor:"pointer" }}>Hide this event from my calendar</button>
+        </div>
+      )}
 
       {/* Edit / Delete — only for custom/personal events */}
       {onEdit && e.id && typeof e.id === "number" && e.id > 1000000 && (
