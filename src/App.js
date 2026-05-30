@@ -387,6 +387,20 @@ export default function App({ session }) {
       .then(({ data }) => { if (data?.role === "admin") setIsAdmin(true); });
   }, [session]);
 
+  // Load and save hidden series preferences
+  useEffect(() => {
+    if (!session) { setFilters(f => ({ ...f, hiddenSeries: [] })); return; }
+    supabase.from("user_preferences").select("hidden_series").eq("id", session.user.id).single()
+      .then(({ data }) => {
+        if (data?.hidden_series) setFilters(f => ({ ...f, hiddenSeries: data.hidden_series }));
+      });
+  }, [session]);
+
+  const saveHiddenSeries = async (hiddenSeries) => {
+    if (!session) return;
+    await supabase.from("user_preferences").upsert({ id: session.user.id, hidden_series: hiddenSeries, updated_at: new Date().toISOString() }, { onConflict: "id" });
+  };
+
   const requireAuth = (action) => { if (!session) { setAuthOpen(true); return; } action(); };
   const handleAddClick = () => requireAuth(() => setAdminOpen(true));
   const handleToggleAttendance = (id) => requireAuth(() => setAttendance(a => ({ ...a, [id]: !a[id] })));
@@ -443,7 +457,13 @@ export default function App({ session }) {
     return m;
   }, [filtered]);
 
-  const toggleSeries = s => setFilters(f => ({ ...f, hiddenSeries: f.hiddenSeries.includes(s) ? f.hiddenSeries.filter(x=>x!==s) : [...f.hiddenSeries, s] }));
+  const toggleSeries = s => {
+    setFilters(f => {
+      const next = f.hiddenSeries.includes(s) ? f.hiddenSeries.filter(x=>x!==s) : [...f.hiddenSeries, s];
+      saveHiddenSeries(next);
+      return { ...f, hiddenSeries: next };
+    });
+  };
 
   const [editingEvent, setEditingEvent] = useState(null);
 
@@ -517,7 +537,7 @@ export default function App({ session }) {
       <div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
           <SectionLabel T={T} style={{ marginBottom:0 }}>Series</SectionLabel>
-          {filters.hiddenSeries.length === ALL_SERIES.length ? <span onClick={()=>setFilters(f=>({...f,hiddenSeries:[]}))} style={{ fontSize:10, color:"#3DAA4E", cursor:"pointer" }}>select all</span> : <span onClick={()=>setFilters(f=>({...f,hiddenSeries:[...ALL_SERIES]}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear all</span>}
+          {filters.hiddenSeries.length === ALL_SERIES.length ? <span onClick={()=>{ setFilters(f=>({...f,hiddenSeries:[]})); saveHiddenSeries([]); }} style={{ fontSize:10, color:"#3DAA4E", cursor:"pointer" }}>select all</span> : <span onClick={()=>{ setFilters(f=>({...f,hiddenSeries:[...ALL_SERIES]})); saveHiddenSeries([...ALL_SERIES]); }} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear all</span>}
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
           {ALL_SERIES.map(s => {
