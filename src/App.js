@@ -19,7 +19,6 @@ const TIMEZONES = [
 // Returns null for "TBC" or "All day"
 function parseSessionTime(dateStr, timeStr) {
   if (!timeStr || timeStr === "TBC" || timeStr.toLowerCase().includes("all day")) return null;
-  // Extract numeric time and meridiem
   const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
   if (!match) return null;
   let hours = parseInt(match[1]);
@@ -28,9 +27,8 @@ function parseSessionTime(dateStr, timeStr) {
   if (meridiem === "PM" && hours !== 12) hours += 12;
   if (meridiem === "AM" && hours === 12) hours = 0;
 
-  // Determine source timezone from suffix
   const upper = timeStr.toUpperCase();
-  let srcTz = "America/Los_Angeles"; // default PT
+  let srcTz = "America/Los_Angeles";
   if (upper.includes("ET"))   srcTz = "America/New_York";
   else if (upper.includes("CT"))  srcTz = "America/Chicago";
   else if (upper.includes("MT"))  srcTz = "America/Denver";
@@ -42,15 +40,6 @@ function parseSessionTime(dateStr, timeStr) {
   else if (upper.includes("BRT")) srcTz = "America/Sao_Paulo";
 
   try {
-    // Build an ISO string in the source timezone, convert to UTC via Intl
-    const naive = `${dateStr}T${String(hours).padStart(2,"0")}:${String(mins).padStart(2,"0")}:00`;
-    // Use Intl to find offset of srcTz at that moment
-    // Binary search isn't needed — use a simpler offset approach
-    // Get the UTC offset for srcTz at the approximate date
-    const probe = new Date(`${dateStr}T12:00:00Z`);
-    // Use offsetFromTz utility
-    const offsetMs = getOffsetMs(srcTz, probe);
-    // Actually just do it properly:
     const d = new Date(`${dateStr}T${String(hours).padStart(2,"0")}:${String(mins).padStart(2,"0")}:00`);
     const off = getOffsetMs(srcTz, d);
     return new Date(d.getTime() - off);
@@ -60,7 +49,6 @@ function parseSessionTime(dateStr, timeStr) {
 }
 
 function getOffsetMs(tz, date) {
-  // Returns UTC offset in ms for a given timezone at a given date
   const utcStr = date.toLocaleString("en-US", { timeZone: "UTC", hour12: false,
     year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const tzStr  = date.toLocaleString("en-US", { timeZone: tz,  hour12: false,
@@ -287,8 +275,8 @@ export default function App() {
       {/* HEADER */}
       <header style={{ borderBottom:"1px solid #1E1E22", padding:"0 20px", display:"flex", alignItems:"center", justifyContent:"space-between", height:52, position:"sticky", top:0, background:"#0C0C0E", zIndex:50, gap:10 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:26, height:26, borderRadius:5, background:"linear-gradient(135deg,#E8502A,#B02010)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, flexShrink:0 }}>RC</div>
-          <span style={{ fontSize:15, fontWeight:600, letterSpacing:-0.3 }}>RaceCal</span>
+          <div style={{ width:26, height:26, borderRadius:5, background:"linear-gradient(135deg,#E8502A,#B02010)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, flexShrink:0 }}>PP</div>
+          <span style={{ fontSize:15, fontWeight:600, letterSpacing:-0.3 }}>Paddock Pass</span>
           <span style={{ fontSize:10, color:"#444", marginLeft:2 }}>v0.2</span>
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
@@ -436,7 +424,6 @@ export default function App() {
                 {TIMEZONES.filter(t=>t.tz!==myTz).map(t=><option key={t.tz} value={t.tz}>{t.label}</option>)}
               </select>
             </Field>
-            {/* Live preview */}
             <div style={{ background:"#0C0C0E", border:"1px solid #1E1E22", borderRadius:7, padding:"10px 12px" }}>
               <div style={{ fontSize:10, color:"#555", marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>Preview — Le Mans Race Start</div>
               <TzPreview myTz={myTz} compareTz={compareTz} />
@@ -451,7 +438,6 @@ export default function App() {
 
 // ─── TIMEZONE PREVIEW ────────────────────────────────────────────────────────
 function TzPreview({ myTz, compareTz }) {
-  // Le Mans race start: June 14 2026 4:00 PM CET
   const utc = parseSessionTime("2026-06-14", "4:00 PM CET");
   if (!utc) return null;
   const myTime = formatInTz(utc, myTz, true);
@@ -508,7 +494,6 @@ function CalendarView({ events, year, month, setMonth, attendance, onSelect, myT
         if (!m[d]) m[d] = [];
         m[d].push(e);
       }
-      // Also mark multi-day span days
       if (e.endDate && end.getMonth() === month && end.getFullYear() === year) {
         let cur = new Date(start);
         cur.setDate(cur.getDate()+1);
@@ -531,19 +516,16 @@ function CalendarView({ events, year, month, setMonth, attendance, onSelect, myT
 
   return (
     <div>
-      {/* Month nav */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
         <button onClick={()=>setMonth(m=>(m+11)%12)} style={btnSty("#141416")}>← Prev</button>
         <span style={{ fontSize:16, fontWeight:600 }}>{MONTHS_LONG[month]} {year}</span>
         <button onClick={()=>setMonth(m=>(m+1)%12)} style={btnSty("#141416")}>Next →</button>
       </div>
 
-      {/* DOW headers */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2, marginBottom:4 }}>
         {DOW.map(d=><div key={d} style={{ textAlign:"center", fontSize:10, fontWeight:700, color:"#444", padding:"4px 0", letterSpacing:1 }}>{d}</div>)}
       </div>
 
-      {/* Grid */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
         {cells.map((d,i) => {
           if (!d) return <div key={`e${i}`} style={{ minHeight:90, background:"#0A0A0C", borderRadius:5 }} />;
@@ -568,7 +550,6 @@ function CalendarView({ events, year, month, setMonth, attendance, onSelect, myT
         })}
       </div>
 
-      {/* Legend for this month */}
       {Object.keys(eventsByDay).length > 0 && (
         <div style={{ marginTop:16, borderTop:"1px solid #1A1A1E", paddingTop:12 }}>
           <div style={{ fontSize:10, fontWeight:700, color:"#444", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>This month</div>
@@ -592,7 +573,6 @@ function CalendarView({ events, year, month, setMonth, attendance, onSelect, myT
 function EventRow({ event:e, attended, onSelect, onToggleAttend, myTz, compareTz }) {
   const meta = SERIES_META[e.series] || { color:"#888" };
   const d = new Date(e.date + "T12:00:00");
-  // Get first real session time for inline display
   const firstSession = e.sessions?.find(s => s.time && s.time !== "TBC" && !s.time.toLowerCase().includes("all day"));
   let inlineTz = null;
   if (firstSession && myTz) {
@@ -771,4 +751,3 @@ function Field({ label, children }) {
 
 const btnSty = (bg, color="#888") => ({ padding:"5px 12px", borderRadius:5, border:`1px solid ${color}40`, background:bg, color, fontSize:12, cursor:"pointer", fontWeight:500 });
 const inpSty = { width:"100%", background:"#0C0C0E", border:"1px solid #2A2A2E", borderRadius:5, padding:"6px 9px", color:"#E8E6E1", fontSize:12 };
-
