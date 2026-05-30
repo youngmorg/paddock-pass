@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
-const SERIES_OPTIONS = ["IMSA","IndyCar","NASCAR","WEC","F1","SRO","Formula Drift","GridLife","ELMS","Off-Road","Pikes Peak","Ferrari Chall.","Car Week","24hr","Cultural","Personal"];
+const SERIES_OPTIONS = ["IMSA","IndyCar","NASCAR","WEC","F1","SRO","Formula Drift","Formula E","MotoGP","GridLife","ELMS","Off-Road","Pikes Peak","Ferrari Chall.","Car Week","24hr","Cultural","Nurburgring","Personal"];
 
 const EMPTY_EVENT = { year:2026, series:"IMSA", name:"", circuit:"", country:"USA", date:"", end_date:"", intl:false, camp:false, status:"upcoming", url:"", sessions:"" };
 
