@@ -854,7 +854,8 @@ function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, 
 
   useEffect(() => {
     if (upcomingRef.current) {
-      upcomingRef.current.scrollIntoView({ behavior: "instant", block: "start" });
+      const offset = upcomingRef.current.getBoundingClientRect().top + window.scrollY - 100;
+      window.scrollTo({ top: offset, behavior: "instant" });
     }
   }, []);
 
