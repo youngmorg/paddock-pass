@@ -313,7 +313,7 @@ export default function App({ session }) {
 
   const [activeYear, setActiveYear] = useState(2026);
   const [view, setView] = useState("timeline");
-  const [filters, setFilters] = useState({ hiddenSeries: [], country: "", camp: false, intl: false, search: "", hidePersonal: false, nurbOnly: false });
+  const [filters, setFilters] = useState({ hiddenSeries: [], country: "", camp: false, intl: false, search: "", hidePersonal: false });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
@@ -415,7 +415,6 @@ export default function App({ session }) {
       if (filters.hiddenSeries && filters.hiddenSeries.length && filters.hiddenSeries.includes(e.series)) return false;
       if (filters.country && e.country !== filters.country) return false;
       if (filters.camp && !e.camp) return false;
-      if (filters.nurbOnly && !e.circuit?.toLowerCase().includes('nürburg') && !e.circuit?.toLowerCase().includes('nurburgring')) return false;
       if (filters.intl && !e.intl) return false;
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -516,10 +515,10 @@ export default function App({ session }) {
             const c = (SERIES_META[s]||{color:"#888"}).color;
             const hidden = filters.hiddenSeries.includes(s);
             return (
-              <button key={s} onClick={()=>toggleSeries(s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"3px 7px", borderRadius:4, cursor:"pointer", opacity:hidden?0.5:1 }}>
-                <div style={{ width:14, height:14, borderRadius:3, border:`1.5px solid ${hidden?T.border2:c}`, background:hidden?"transparent":c+"22", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{!hidden && <div style={{ width:7, height:7, borderRadius:1, background:c }} />}</div>
-                <span style={{ fontSize:11, color:hidden?T.textMid:T.text }}>{s}</span>
-              </button>
+              <div key={s} onClick={()=>toggleSeries(s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"3px 7px", borderRadius:4, cursor:"pointer" }}>
+                <div style={{ width:10, height:10, borderRadius:2, flexShrink:0, background:hidden?"transparent":c, border:`1.5px solid ${hidden?T.textDim:c}` }} />
+                <span style={{ fontSize:11, color:hidden?T.textDim:T.text }}>{s}</span>
+              </div>
             );
           })}
         </div>
@@ -537,7 +536,6 @@ export default function App({ session }) {
         <Toggle T={T} label="Campable only"      value={filters.camp}         onChange={v=>setFilters(f=>({...f,camp:v}))} />
         <Toggle T={T} label="International only" value={filters.intl}         onChange={v=>setFilters(f=>({...f,intl:v}))} />
         <Toggle T={T} label="Hide personal"      value={filters.hidePersonal} onChange={v=>setFilters(f=>({...f,hidePersonal:v}))} />
-        <Toggle T={T} label="🟢 Nürburgring only"  value={filters.nurbOnly}      onChange={v=>setFilters(f=>({...f,nurbOnly:v}))} />
       </div>
 
       <div style={{ marginTop:"auto", borderTop:`1px solid ${T.border}`, paddingTop:12, display:"flex", flexDirection:"column", gap:6 }}>
