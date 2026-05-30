@@ -116,6 +116,7 @@ const SERIES_META = {
   "Nurburgring":    { color: "#E8002D" },
   "Formula E":      { color: "#00AAFF" },
   "MotoGP":         { color: "#CC0000" },
+  "ALMS":           { color: "#FF6B00" },
   "Personal":       { color: "#7B68EE" },
 };
 
