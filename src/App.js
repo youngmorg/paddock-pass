@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabase";
-import AdminPanel from "./AdminPanel";
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
 const DARK = {
@@ -117,7 +116,6 @@ const SERIES_META = {
 };
 
 // ─── EVENTS ──────────────────────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
 const BASE_EVENTS = [
   { id:1,  year:2026, series:"Off-Road",       name:"Mint 400",                               circuit:"Las Vegas Desert, NV",            country:"USA",       date:"2026-03-07", endDate:"2026-03-09", intl:false, camp:false, status:"done",     url:"https://themint400.com",
     sessions:[{label:"Race Day",date:"2026-03-09",time:"7:00 AM PT"}] },
@@ -317,43 +315,16 @@ export default function App({ session }) {
   const [adminOpen, setAdminOpen] = useState(false);
   const [tzOpen, setTzOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [myTz, setMyTz] = useState("America/Los_Angeles");
   const [compareTz, setCompareTz] = useState("");
   const [customEvents, setCustomEvents] = useState([]);
   const [newEvent, setNewEvent] = useState({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false });
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [coffeeBannerOpen, setCoffeeBannerOpen] = useState(true);
   const [attendance, setAttendance] = useState(() => {
     try { return JSON.parse(localStorage.getItem("rcAttendance") || "{}"); } catch { return {}; }
   });
-
-  const [masterEvents, setMasterEvents] = useState([]);
-
-  useEffect(() => {
-    supabase.from("master_events").select("*").order("date")
-      .then(({ data }) => {
-        if (data) {
-          setMasterEvents(data.map(e => ({
-            id: e.id,
-            year: e.year,
-            series: e.series,
-            name: e.name,
-            circuit: e.circuit || "",
-            country: e.country || "USA",
-            date: e.date,
-            endDate: e.end_date || "",
-            intl: e.intl || false,
-            camp: e.camp || false,
-            status: e.status || "upcoming",
-            url: e.url || "",
-            sessions: e.sessions || [],
-            fromMaster: true,
-          })));
-        }
-      });
-  }, []);
 
   const [hiddenEvents, setHiddenEvents] = useState({});
 
@@ -374,8 +345,7 @@ export default function App({ session }) {
 
   const handleHideEvent = async (id) => {
     if (!session) { setAuthOpen(true); return; }
-    console.log("hiding event id:", id, typeof id);
-    setHiddenEvents(h => { const next = { ...h, [id]: true, [String(id)]: true }; console.log("new hiddenEvents:", next); return next; });
+    setHiddenEvents(h => ({ ...h, [id]: true, [String(id)]: true }));
     setSelectedEvent(null);
     await supabase.from("hidden_events").upsert({ user_id: session.user.id, event_id: id }, { onConflict: "user_id,event_id" });
   };
@@ -385,12 +355,6 @@ export default function App({ session }) {
     setHiddenEvents({});
     await supabase.from("hidden_events").delete().eq("user_id", session.user.id);
   };
-
-  useEffect(() => {
-    if (!session) return;
-    supabase.from("profiles").select("role").eq("id", session.user.id).single()
-      .then(({ data }) => { if (data?.role === "admin") setIsAdmin(true); });
-  }, [session]);
 
   const requireAuth = (action) => { if (!session) { setAuthOpen(true); return; } action(); };
   const handleAddClick = () => requireAuth(() => setAdminOpen(true));
@@ -411,7 +375,7 @@ export default function App({ session }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const showSidebar = isMobile ? sidebarOpen : !sidebarCollapsed;
 
-  const allEvents = useMemo(() => [...masterEvents, ...customEvents], [masterEvents, customEvents]);
+  const allEvents = useMemo(() => [...BASE_EVENTS, ...customEvents], [customEvents]);
 
   const filtered = useMemo(() => {
     return allEvents.filter(e => {
@@ -440,6 +404,7 @@ export default function App({ session }) {
   }, [filtered]);
 
   const toggleSeries = s => setFilters(f => ({ ...f, series: f.series.includes(s) ? f.series.filter(x=>x!==s) : [...f.series, s] }));
+  const toggleAttendance = id => setAttendance(a => ({ ...a, [id]: !a[id] }));
 
   const [editingEvent, setEditingEvent] = useState(null);
 
@@ -601,8 +566,16 @@ export default function App({ session }) {
           {!isMobile && <span style={{ fontSize:10, color:T.textFaint }}>v0.3</span>}
         </div>
 
+        {/* Center: Ko-fi button — desktop only */}
+        {!isMobile && (
+          <a href="https://ko-fi.com/paddock_pass" target="_blank" rel="noopener noreferrer"
+            style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, border:"1px solid #FF5E5B40", background:darkMode?"#1A1010":T.bgCard, color:"#FF5E5B", fontSize:12, fontWeight:600, textDecoration:"none", whiteSpace:"nowrap" }}>
+            ☕ Buy me a coffee
+          </a>
+        )}
+
         {/* Right: view switcher always visible; desktop also shows dark/tz/add */}
-        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+        <div style={{ display:"flex", gap:6, alignItems:"center", justifyContent:"flex-end" }}>
           {/* Desktop-only controls */}
           {!isMobile && <>
             <button onClick={()=>setDarkMode(d=>!d)} style={{ padding:"5px 10px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:14, cursor:"pointer" }}>
@@ -627,15 +600,22 @@ export default function App({ session }) {
 
           {/* Login / user button */}
           {session ? (
-            <div style={{ display:"flex", gap:6 }}>
-              {isAdmin && <button onClick={()=>setAdminPanelOpen(true)} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #FFB80040", background:darkMode?"#1A1A10":T.bgCard, color:"#FFB800", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>⚙ Admin</button>}
-              <button onClick={handleLogout} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize: isMobile?13:12, cursor:"pointer", fontWeight:500 }}>Log out</button>
-            </div>
+            <button onClick={handleLogout} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize: isMobile?13:12, cursor:"pointer", fontWeight:500 }}>Log out</button>
           ) : (
             <button onClick={()=>setAuthOpen(true)} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #E8502A40", background:darkMode?"#1A1010":T.bgCard, color:"#E8502A", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>Log in</button>
           )}
         </div>
       </header>
+
+      {isMobile && coffeeBannerOpen && (
+        <div style={{ background:darkMode?"#1A1010":"#FFF0EE", borderBottom:"1px solid #FF5E5B30", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+          <a href="https://ko-fi.com/paddock_pass" target="_blank" rel="noopener noreferrer"
+            style={{ display:"inline-flex", alignItems:"center", gap:6, color:"#FF5E5B", fontSize:12, fontWeight:600, textDecoration:"none" }}>
+            ☕ Buy me a coffee — support Paddock Pass
+          </a>
+          <button onClick={()=>setCoffeeBannerOpen(false)} style={{ background:"none", border:"none", color:"#FF5E5B", fontSize:16, cursor:"pointer", padding:"0 2px", lineHeight:1, flexShrink:0 }}>✕</button>
+        </div>
+      )}
 
       <div style={{ display:"flex", minHeight:"calc(100vh - 52px)", position:"relative" }}>
 
@@ -698,7 +678,7 @@ export default function App({ session }) {
       {/* MODALS */}
       {selectedEvent && (
         <Modal T={T} onClose={()=>setSelectedEvent(null)}>
-          <EventDetail T={T} event={selectedEvent} attended={attendance[selectedEvent.id]} onToggleAttend={()=>handleToggleAttendance(selectedEvent.id)} myTz={myTz} compareTz={compareTz} onEdit={editCustomEvent} onDelete={deleteCustomEvent} onHide={handleHideEvent} />
+          <EventDetail T={T} event={selectedEvent} attended={attendance[selectedEvent.id]} onToggleAttend={()=>handleToggleAttendance(selectedEvent.id)} myTz={myTz} compareTz={compareTz} onEdit={editCustomEvent} onDelete={deleteCustomEvent} />
         </Modal>
       )}
 
@@ -737,7 +717,6 @@ export default function App({ session }) {
       )}
 
       {authOpen && <AuthModal T={T} onClose={()=>setAuthOpen(false)} />}
-      {adminPanelOpen && <AdminPanel T={T} onClose={()=>setAdminPanelOpen(false)} />}
 
       {tzOpen && (
         <Modal T={T} onClose={()=>setTzOpen(false)}>
@@ -964,7 +943,7 @@ function EventCard({ T, event:e, attended, onSelect, onToggleAttend }) {
 }
 
 // ─── EVENT DETAIL MODAL ──────────────────────────────────────────────────────
-function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, onEdit, onDelete, onHide }) {
+function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, onEdit, onDelete }) {
   const meta = SERIES_META[e.series] || { color:"#888" };
   const start = new Date(e.date + "T12:00:00");
   const end = e.endDate ? new Date(e.endDate + "T12:00:00") : null;
@@ -1034,12 +1013,6 @@ function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, on
         </div>
       )}
       {e.notes && <div style={{ marginTop:10, padding:"9px 11px", background:T.bgInput, borderRadius:5, border:`1px solid ${T.border}`, fontSize:12, color:T.textMid, fontStyle:"italic" }}>{e.notes}</div>}
-
-      {onHide && typeof e.id === "number" && e.id <= 53 && (
-        <div style={{ marginTop:10 }}>
-          <button onClick={()=>onHide(e.id)} style={{ width:"100%", padding:"7px", borderRadius:6, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textDim, fontSize:12, cursor:"pointer" }}>Hide this event from my calendar</button>
-        </div>
-      )}
 
       {/* Edit / Delete — only for custom/personal events */}
       {onEdit && e.id && typeof e.id === "number" && e.id > 1000000 && (
