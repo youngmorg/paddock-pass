@@ -244,11 +244,24 @@ export default function App() {
   const [customEvents, setCustomEvents] = useState([]);
   const [newEvent, setNewEvent] = useState({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false });
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [attendance, setAttendance] = useState(() => {
     try { return JSON.parse(localStorage.getItem("rcAttendance") || "{}"); } catch { return {}; }
   });
 
   useEffect(() => { try { localStorage.setItem("rcAttendance", JSON.stringify(attendance)); } catch {} }, [attendance]);
+
+  // Detect mobile (≤768px)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
+  // On desktop, sidebar is open by default; on mobile, closed
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const showSidebar = isMobile ? sidebarOpen : !sidebarCollapsed;
 
   const allEvents = useMemo(() => [...BASE_EVENTS, ...customEvents], [customEvents]);
 
@@ -294,95 +307,166 @@ export default function App() {
   const ALL_COUNTRIES = [...new Set(allEvents.map(e=>e.country))].sort();
   const attendedCount = allEvents.filter(e=>e.year===activeYear&&attendance[e.id]).length;
 
-  const btnSty = (bg, color="#888") => ({ padding:"5px 12px", borderRadius:5, border:`1px solid ${color}40`, background:bg, color, fontSize:12, cursor:"pointer", fontWeight:500 });
   const inpSty = { width:"100%", background:T.bgInput, border:`1px solid ${T.border2}`, borderRadius:5, padding:"6px 9px", color:T.text, fontSize:12 };
+
+  // Sidebar content (shared between mobile overlay and desktop panel)
+  const SidebarContent = () => (
+    <>
+      {/* On mobile: show dark/light, timezone, add at top of sidebar */}
+      {isMobile && (
+        <div style={{ display:"flex", flexDirection:"column", gap:8, paddingBottom:14, marginBottom:6, borderBottom:`1px solid ${T.border}` }}>
+          <SectionLabel T={T}>Controls</SectionLabel>
+          <button onClick={()=>setDarkMode(d=>!d)} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:6, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:13, cursor:"pointer", width:"100%" }}>
+            {darkMode ? "☀️" : "🌙"} {darkMode ? "Light mode" : "Dark mode"}
+          </button>
+          <button onClick={()=>{ setTzOpen(true); setSidebarOpen(false); }} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:6, border:"1px solid #6A9FD840", background:T.bgCard, color:"#6A9FD8", fontSize:13, cursor:"pointer", width:"100%" }}>
+            🕐 {tzAbbr(myTz)}{compareTz ? ` · ${tzAbbr(compareTz)}` : ""}
+          </button>
+          <button onClick={()=>{ setAdminOpen(true); setSidebarOpen(false); }} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:6, border:"1px solid #3DAA4E40", background:T.bgCard, color:"#3DAA4E", fontSize:13, cursor:"pointer", width:"100%", fontWeight:600 }}>
+            + Add event
+          </button>
+        </div>
+      )}
+
+      <div>
+        <SectionLabel T={T}>Year</SectionLabel>
+        <div style={{ display:"flex", gap:5 }}>
+          {[2026,2027].map(y=>(
+            <button key={y} onClick={()=>setActiveYear(y)} style={{ flex:1, padding:"5px 0", borderRadius:5, border:`1px solid ${activeYear===y?"#E8502A":T.border2}`, background:activeYear===y?(darkMode?"#1A1210":"#FFF0ED"):"transparent", color:activeYear===y?"#E8502A":T.textMid, fontSize:13, fontWeight:600, cursor:"pointer" }}>{y}</button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <SectionLabel T={T}>Search</SectionLabel>
+        <input value={filters.search} onChange={e=>setFilters(f=>({...f,search:e.target.value}))} placeholder="Event, circuit…" style={inpSty} />
+      </div>
+
+      <div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <SectionLabel T={T} style={{ marginBottom:0 }}>Series</SectionLabel>
+          {filters.series.length>0 && <span onClick={()=>setFilters(f=>({...f,series:[]}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear</span>}
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+          {ALL_SERIES.map(s => {
+            const c = (SERIES_META[s]||{color:"#888"}).color;
+            const on = filters.series.includes(s);
+            return (
+              <button key={s} onClick={()=>toggleSeries(s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"4px 7px", borderRadius:4, border:`1px solid ${on?c+"60":T.border}`, background:on?c+"18":"transparent", cursor:"pointer", textAlign:"left" }}>
+                <div style={{ width:7, height:7, borderRadius:2, background:c, flexShrink:0 }} />
+                <span style={{ fontSize:11, color:on?T.text:T.textMid }}>{s}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <SectionLabel T={T}>Country</SectionLabel>
+        <select value={filters.country} onChange={e=>setFilters(f=>({...f,country:e.target.value}))} style={inpSty}>
+          <option value="">All countries</option>
+          {ALL_COUNTRIES.map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+
+      <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+        <Toggle T={T} label="Campable only"      value={filters.camp}         onChange={v=>setFilters(f=>({...f,camp:v}))} />
+        <Toggle T={T} label="International only" value={filters.intl}         onChange={v=>setFilters(f=>({...f,intl:v}))} />
+        <Toggle T={T} label="Hide personal"      value={filters.hidePersonal} onChange={v=>setFilters(f=>({...f,hidePersonal:v}))} />
+      </div>
+
+      <div style={{ marginTop:"auto", borderTop:`1px solid ${T.border}`, paddingTop:12, display:"flex", flexDirection:"column", gap:6 }}>
+        <StatR T={T} label="Showing"       value={filtered.length} />
+        <StatR T={T} label="Attended"      value={attendedCount}   accent="#E8502A" />
+        <StatR T={T} label="International" value={filtered.filter(e=>e.intl).length} accent="#3DAA4E" />
+        <StatR T={T} label="Campable"      value={filtered.filter(e=>e.camp).length}  accent="#B86B1B" />
+      </div>
+    </>
+  );
 
   return (
     <div style={{ minHeight:"100vh", background:T.bg, color:T.text, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
       {/* HEADER */}
-      <header style={{ borderBottom:`1px solid ${T.border}`, padding:"0 20px", display:"flex", alignItems:"center", justifyContent:"space-between", height:52, position:"sticky", top:0, background:T.headerBg, zIndex:50, gap:10 }}>
+      <header style={{ borderBottom:`1px solid ${T.border}`, padding:"0 16px", display:"flex", alignItems:"center", justifyContent:"space-between", height:52, position:"sticky", top:0, background:T.headerBg, zIndex:50, gap:8 }}>
+        {/* Left: hamburger + logo */}
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <button
+            onClick={()=> isMobile ? setSidebarOpen(o=>!o) : setSidebarCollapsed(c=>!c)}
+            style={{ background:"none", border:"none", cursor:"pointer", color:T.textMid, fontSize:18, padding:"4px 2px", lineHeight:1, flexShrink:0 }}
+            title="Toggle sidebar"
+          >☰</button>
           <div style={{ width:26, height:26, borderRadius:5, background:"linear-gradient(135deg,#E8502A,#B02010)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, flexShrink:0, color:"#fff" }}>PP</div>
           <span style={{ fontSize:15, fontWeight:600, letterSpacing:-0.3 }}>Paddock Pass</span>
-          <span style={{ fontSize:10, color:T.textFaint, marginLeft:2 }}>v0.3</span>
+          {!isMobile && <span style={{ fontSize:10, color:T.textFaint }}>v0.3</span>}
         </div>
-        <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
-          {/* Dark/Light toggle */}
-          <button onClick={()=>setDarkMode(d=>!d)} style={{ padding:"5px 10px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:14, cursor:"pointer" }} title={darkMode?"Switch to light mode":"Switch to dark mode"}>
-            {darkMode ? "☀️" : "🌙"}
-          </button>
-          <button onClick={()=>setTzOpen(true)} style={btnSty(darkMode?"#1A1A20":T.bgCard,"#6A9FD8")} title="Timezone settings">
-            🕐 {tzAbbr(myTz)}{compareTz ? ` · ${tzAbbr(compareTz)}` : ""}
-          </button>
+
+        {/* Right: view switcher always visible; desktop also shows dark/tz/add */}
+        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+          {/* Desktop-only controls */}
+          {!isMobile && <>
+            <button onClick={()=>setDarkMode(d=>!d)} style={{ padding:"5px 10px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:14, cursor:"pointer" }}>
+              {darkMode ? "☀️" : "🌙"}
+            </button>
+            <button onClick={()=>setTzOpen(true)} style={{ padding:"5px 12px", borderRadius:5, border:"1px solid #6A9FD840", background:darkMode?"#1A1A20":T.bgCard, color:"#6A9FD8", fontSize:12, cursor:"pointer", fontWeight:500 }}>
+              🕐 {tzAbbr(myTz)}{compareTz ? ` · ${tzAbbr(compareTz)}` : ""}
+            </button>
+            <button onClick={()=>setAdminOpen(true)} style={{ padding:"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize:12, cursor:"pointer", fontWeight:500 }}>+ Add</button>
+          </>}
+
+          {/* View switcher — always shown */}
           <div style={{ display:"flex", background:T.bgCard, border:`1px solid ${T.border2}`, borderRadius:6, overflow:"hidden" }}>
             {[["timeline","☰"],["calendar","⊡"],["grid","⊞"]].map(([v,icon])=>(
-              <button key={v} onClick={()=>{ setView(v); if(v==="calendar") setCalMonth(new Date().getMonth()); }} style={{ padding:"5px 10px", background:view===v?T.border2:"transparent", border:"none", color:view===v?T.text:T.textDim, fontSize:12, cursor:"pointer" }}>{icon} {v}</button>
+              <button key={v} onClick={()=>{ setView(v); if(v==="calendar") setCalMonth(new Date().getMonth()); }} style={{ padding: isMobile?"6px 10px":"5px 10px", background:view===v?T.border2:"transparent", border:"none", color:view===v?T.text:T.textDim, fontSize: isMobile?13:12, cursor:"pointer" }} title={v}>
+                {isMobile ? icon : `${icon} ${v}`}
+              </button>
             ))}
           </div>
-          <button onClick={()=>setAdminOpen(true)} style={btnSty(darkMode?"#1A2A1A":T.bgCard,"#3DAA4E")}>+ Add</button>
         </div>
       </header>
 
-      <div style={{ display:"flex", minHeight:"calc(100vh - 52px)" }}>
-        {/* SIDEBAR */}
-        <aside style={{ width:210, flexShrink:0, borderRight:`1px solid ${T.border}`, padding:"16px 14px", display:"flex", flexDirection:"column", gap:16, position:"sticky", top:52, height:"calc(100vh - 52px)", overflowY:"auto", background:T.bg }}>
-          <div>
-            <SectionLabel T={T}>Year</SectionLabel>
-            <div style={{ display:"flex", gap:5 }}>
-              {[2026,2027].map(y=>(
-                <button key={y} onClick={()=>setActiveYear(y)} style={{ flex:1, padding:"5px 0", borderRadius:5, border:`1px solid ${activeYear===y?"#E8502A":T.border2}`, background:activeYear===y?(darkMode?"#1A1210":"#FFF0ED"):"transparent", color:activeYear===y?"#E8502A":T.textMid, fontSize:13, fontWeight:600, cursor:"pointer" }}>{y}</button>
-              ))}
-            </div>
-          </div>
+      <div style={{ display:"flex", minHeight:"calc(100vh - 52px)", position:"relative" }}>
 
-          <div>
-            <SectionLabel T={T}>Search</SectionLabel>
-            <input value={filters.search} onChange={e=>setFilters(f=>({...f,search:e.target.value}))} placeholder="Event, circuit…" style={inpSty} />
-          </div>
+        {/* MOBILE OVERLAY BACKDROP */}
+        {isMobile && sidebarOpen && (
+          <div onClick={()=>setSidebarOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:90, top:52 }} />
+        )}
 
-          <div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-              <SectionLabel T={T} style={{ marginBottom:0 }}>Series</SectionLabel>
-              {filters.series.length>0 && <span onClick={()=>setFilters(f=>({...f,series:[]}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear</span>}
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-              {ALL_SERIES.map(s => {
-                const c = (SERIES_META[s]||{color:"#888"}).color;
-                const on = filters.series.includes(s);
-                return (
-                  <button key={s} onClick={()=>toggleSeries(s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"4px 7px", borderRadius:4, border:`1px solid ${on?c+"60":T.border}`, background:on?c+"18":"transparent", cursor:"pointer", textAlign:"left" }}>
-                    <div style={{ width:7, height:7, borderRadius:2, background:c, flexShrink:0 }} />
-                    <span style={{ fontSize:11, color:on?T.text:T.textMid }}>{s}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <SectionLabel T={T}>Country</SectionLabel>
-            <select value={filters.country} onChange={e=>setFilters(f=>({...f,country:e.target.value}))} style={inpSty}>
-              <option value="">All countries</option>
-              {ALL_COUNTRIES.map(c=><option key={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-            <Toggle T={T} label="Campable only"      value={filters.camp}         onChange={v=>setFilters(f=>({...f,camp:v}))} />
-            <Toggle T={T} label="International only" value={filters.intl}         onChange={v=>setFilters(f=>({...f,intl:v}))} />
-            <Toggle T={T} label="Hide personal"      value={filters.hidePersonal} onChange={v=>setFilters(f=>({...f,hidePersonal:v}))} />
-          </div>
-
-          <div style={{ marginTop:"auto", borderTop:`1px solid ${T.border}`, paddingTop:12, display:"flex", flexDirection:"column", gap:6 }}>
-            <StatR T={T} label="Showing"       value={filtered.length} />
-            <StatR T={T} label="Attended"      value={attendedCount}   accent="#E8502A" />
-            <StatR T={T} label="International" value={filtered.filter(e=>e.intl).length} accent="#3DAA4E" />
-            <StatR T={T} label="Campable"      value={filtered.filter(e=>e.camp).length}  accent="#B86B1B" />
-          </div>
-        </aside>
+        {/* SIDEBAR — slides in on mobile, collapses on desktop */}
+        {showSidebar && (
+          <aside style={{
+            width: 220,
+            flexShrink: 0,
+            borderRight: `1px solid ${T.border}`,
+            padding: "16px 14px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            background: T.bg,
+            overflowY: "auto",
+            // Mobile: fixed overlay sliding from left
+            ...(isMobile ? {
+              position: "fixed",
+              top: 52,
+              left: 0,
+              bottom: 0,
+              zIndex: 100,
+              boxShadow: "4px 0 24px rgba(0,0,0,0.4)",
+            } : {
+              position: "sticky",
+              top: 52,
+              height: "calc(100vh - 52px)",
+            })
+          }}>
+            {/* Close button on mobile */}
+            {isMobile && (
+              <button onClick={()=>setSidebarOpen(false)} style={{ alignSelf:"flex-end", background:"none", border:"none", color:T.textMid, fontSize:18, cursor:"pointer", marginBottom:-8 }}>✕</button>
+            )}
+            <SidebarContent />
+          </aside>
+        )}
 
         {/* MAIN CONTENT */}
-        <main style={{ flex:1, padding:"18px 20px", overflowY:"auto", minWidth:0 }}>
+        <main style={{ flex:1, padding: isMobile?"14px":"18px 20px", overflowY:"auto", minWidth:0 }}>
           {view === "timeline" && (
             <TimelineView T={T} byMonth={byMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={toggleAttendance} myTz={myTz} compareTz={compareTz} />
           )}
@@ -390,7 +474,7 @@ export default function App() {
             <CalendarView T={T} events={filtered} year={activeYear} month={calMonth} setMonth={setCalMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={toggleAttendance} myTz={myTz} />
           )}
           {view === "grid" && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:10 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:10 }}>
               {filtered.map(e=><EventCard T={T} key={e.id} event={e} attended={attendance[e.id]} onSelect={()=>setSelectedEvent(e)} onToggleAttend={()=>toggleAttendance(e.id)} />)}
               {filtered.length===0 && <div style={{ gridColumn:"1/-1", textAlign:"center", color:T.textDim, padding:"60px 0", fontSize:14 }}>No events match.</div>}
             </div>
