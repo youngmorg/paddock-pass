@@ -116,6 +116,7 @@ const SERIES_META = {
 };
 
 // ─── EVENTS ──────────────────────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
 const BASE_EVENTS = [
   { id:1,  year:2026, series:"Off-Road",       name:"Mint 400",                               circuit:"Las Vegas Desert, NV",            country:"USA",       date:"2026-03-07", endDate:"2026-03-09", intl:false, camp:false, status:"done",     url:"https://themint400.com",
     sessions:[{label:"Race Day",date:"2026-03-09",time:"7:00 AM PT"}] },
