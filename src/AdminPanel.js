@@ -62,7 +62,7 @@ export default function AdminPanel({ T, onClose }) {
     if (editing) {
       await supabase.from("master_events").update(payload).eq("id", editing.id);
     } else {
-      await supabase.from("master_events").insert(payload);
+      await supabase.from("master_events").upsert(payload, { onConflict: "series,name,date", ignoreDuplicates: false });
     }
 
     await loadEvents();
