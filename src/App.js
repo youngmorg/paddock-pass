@@ -396,11 +396,16 @@ export default function App({ session }) {
 
   // Detect mobile (≤768px)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [orientation, setOrientation] = useState(window.innerWidth);
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth <= 768);
+    const handler = () => {
+      setIsMobile(window.innerWidth <= 768);
+      setOrientation(window.innerWidth);
+      if (sidebarOpen) setSidebarOpen(false);
+    };
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
-  }, []);
+  }, [sidebarOpen]);
 
   // On desktop, sidebar is open by default; on mobile, closed
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -616,9 +621,9 @@ export default function App({ session }) {
             </button>
           </>}
 
-          {/* View switcher — always shown */}
+          {/* View switcher */}
           <div style={{ display:"flex", background:T.bgCard, border:`1px solid ${T.border2}`, borderRadius:6, overflow:"hidden" }}>
-            {[["timeline","☰"],["calendar","⊡"],["grid","⊞"]].map(([v,icon])=>(
+            {(isMobile ? [["timeline","☰"],["calendar","⊞"]] : [["timeline","☰"],["calendar","⊡"],["grid","⊞"]]).map(([v,icon])=>(
               <button key={v} onClick={()=>{ setView(v); if(v==="calendar") setCalMonth(new Date().getMonth()); }} style={{ padding: isMobile?"6px 10px":"5px 10px", background:view===v?T.border2:"transparent", border:"none", color:view===v?T.text:T.textDim, fontSize: isMobile?13:12, cursor:"pointer" }} title={v}>
                 {isMobile ? icon : `${icon} ${v}`}
               </button>
