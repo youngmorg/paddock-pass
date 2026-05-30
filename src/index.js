@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
-import Auth from './Auth';
 import { supabase } from './supabase';
 import reportWebVitals from './reportWebVitals';
 
@@ -27,7 +26,7 @@ function Root() {
     </div>
   );
 
-  return session ? <App session={session} /> : <Auth />;
+  return <App session={session} />;
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

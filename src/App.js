@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { supabase } from "./supabase";
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
 const DARK = {
@@ -228,8 +229,82 @@ const MONTHS_LONG = ["January","February","March","April","May","June","July","A
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
+// ─── AUTH MODAL ──────────────────────────────────────────────────────────────
+function AuthModal({ T, onClose }) {
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const inpSty = { width:"100%", background:T.bgInput, border:`1px solid ${T.border2}`, borderRadius:6, padding:"9px 11px", color:T.text, fontSize:13, boxSizing:"border-box" };
+
+  const handleLogin = async () => {
+    setLoading(true); setError("");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    else onClose();
+    setLoading(false);
+  };
+
+  const handleSignup = async () => {
+    if (!username) { setError("Username is required"); return; }
+    setLoading(true); setError("");
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: null } });
+    if (error) { setError(error.message); setLoading(false); return; }
+    if (data.user) {
+      await supabase.from("profiles").update({ username }).eq("id", data.user.id);
+      setMessage("Account created! You can now log in.");
+      setMode("login");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:T.bgModal, border:`1px solid ${T.border2}`, borderRadius:14, padding:"28px 24px", width:"100%", maxWidth:380, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <div style={{ fontSize:17, fontWeight:700, color:T.text }}>Welcome to Paddock Pass</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:T.textDim, fontSize:18, cursor:"pointer" }}>✕</button>
+        </div>
+        <div style={{ display:"flex", background:T.bg, borderRadius:8, padding:3, marginBottom:20 }}>
+          {["login","signup"].map(m => (
+            <button key={m} onClick={()=>{ setMode(m); setError(""); setMessage(""); }} style={{ flex:1, padding:"7px 0", borderRadius:6, border:"none", background:mode===m?T.border2:"transparent", color:mode===m?T.text:T.textDim, fontSize:13, fontWeight:mode===m?600:400, cursor:"pointer" }}>
+              {m === "login" ? "Log in" : "Sign up"}
+            </button>
+          ))}
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {mode === "signup" && (
+            <div>
+              <div style={{ fontSize:11, color:T.textDim, marginBottom:4 }}>Username</div>
+              <input style={inpSty} placeholder="e.g. morganraynal" value={username} onChange={e=>setUsername(e.target.value)} />
+            </div>
+          )}
+          <div>
+            <div style={{ fontSize:11, color:T.textDim, marginBottom:4 }}>Email</div>
+            <input style={inpSty} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} />
+          </div>
+          <div>
+            <div style={{ fontSize:11, color:T.textDim, marginBottom:4 }}>Password</div>
+            <input style={inpSty} type="password" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleSignup())} />
+          </div>
+          {error && <div style={{ fontSize:12, color:"#E8502A", padding:"8px 10px", background:"#E8502A15", borderRadius:6 }}>{error}</div>}
+          {message && <div style={{ fontSize:12, color:"#3DAA4E", padding:"8px 10px", background:"#3DAA4E15", borderRadius:6 }}>{message}</div>}
+          <button onClick={mode==="login"?handleLogin:handleSignup} disabled={loading}
+            style={{ marginTop:4, padding:"10px", borderRadius:7, border:"none", background:"linear-gradient(135deg,#E8502A,#B02010)", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer", opacity:loading?0.7:1 }}>
+            {loading ? "..." : mode==="login" ? "Log in" : "Create account"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ─────────────────────────────────────────────────────────────────────
-export default function App() {
+export default function App({ session }) {
   const [darkMode, setDarkMode] = useState(true);
   const T = darkMode ? DARK : LIGHT;
 
@@ -239,6 +314,7 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [tzOpen, setTzOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [myTz, setMyTz] = useState("America/Los_Angeles");
   const [compareTz, setCompareTz] = useState("");
   const [customEvents, setCustomEvents] = useState([]);
@@ -248,6 +324,11 @@ export default function App() {
   const [attendance, setAttendance] = useState(() => {
     try { return JSON.parse(localStorage.getItem("rcAttendance") || "{}"); } catch { return {}; }
   });
+
+  const requireAuth = (action) => { if (!session) { setAuthOpen(true); return; } action(); };
+  const handleAddClick = () => requireAuth(() => setAdminOpen(true));
+  const handleToggleAttendance = (id) => requireAuth(() => setAttendance(a => ({ ...a, [id]: !a[id] })));
+  const handleLogout = async () => { await supabase.auth.signOut(); };
 
   useEffect(() => { try { localStorage.setItem("rcAttendance", JSON.stringify(attendance)); } catch {} }, [attendance]);
 
@@ -294,13 +375,34 @@ export default function App() {
   const toggleSeries = s => setFilters(f => ({ ...f, series: f.series.includes(s) ? f.series.filter(x=>x!==s) : [...f.series, s] }));
   const toggleAttendance = id => setAttendance(a => ({ ...a, [id]: !a[id] }));
 
+  const [editingEvent, setEditingEvent] = useState(null);
+
   const addCustomEvent = () => {
     if (!newEvent.name || !newEvent.date) return;
-    const id = Date.now();
     const series = newEvent.personal ? "Personal" : newEvent.series;
-    setCustomEvents(prev => [...prev, { ...newEvent, series, id, year: parseInt(newEvent.date.split("-")[0]) || activeYear, status:"upcoming", sessions:[] }]);
+    if (editingEvent) {
+      // Update existing
+      setCustomEvents(prev => prev.map(e => e.id === editingEvent ? { ...e, ...newEvent, series } : e));
+      setEditingEvent(null);
+    } else {
+      // Add new
+      const id = Date.now();
+      setCustomEvents(prev => [...prev, { ...newEvent, series, id, year: parseInt(newEvent.date.split("-")[0]) || activeYear, status:"upcoming", sessions:[] }]);
+    }
     setNewEvent({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false });
     setAdminOpen(false);
+  };
+
+  const deleteCustomEvent = (id) => {
+    setCustomEvents(prev => prev.filter(e => e.id !== id));
+    setSelectedEvent(null);
+  };
+
+  const editCustomEvent = (e) => {
+    setNewEvent({ name:e.name, circuit:e.circuit||"", country:e.country||"USA", date:e.date, endDate:e.endDate||"", series:e.series==="Personal"?"IMSA":e.series, intl:e.intl||false, camp:e.camp||false, notes:e.notes||"", personal:e.series==="Personal" });
+    setEditingEvent(e.id);
+    setSelectedEvent(null);
+    setAdminOpen(true);
   };
 
   const ALL_SERIES = [...new Set(allEvents.map(e=>e.series))].sort();
@@ -450,7 +552,14 @@ export default function App() {
           </div>
 
           {/* + Add always visible */}
-          <button onClick={()=>setAdminOpen(true)} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>+ Add</button>
+          <button onClick={handleAddClick} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>+ Add</button>
+
+          {/* Login / user button */}
+          {session ? (
+            <button onClick={handleLogout} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize: isMobile?13:12, cursor:"pointer", fontWeight:500 }}>Log out</button>
+          ) : (
+            <button onClick={()=>setAuthOpen(true)} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #E8502A40", background:darkMode?"#1A1010":T.bgCard, color:"#E8502A", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>Log in</button>
+          )}
         </div>
       </header>
 
@@ -498,14 +607,14 @@ export default function App() {
         {/* MAIN CONTENT */}
         <main style={{ flex:1, padding: isMobile?"14px":"18px 20px", overflowY:"auto", minWidth:0 }}>
           {view === "timeline" && (
-            <TimelineView T={T} byMonth={byMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={toggleAttendance} myTz={myTz} compareTz={compareTz} />
+            <TimelineView T={T} byMonth={byMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} compareTz={compareTz} />
           )}
           {view === "calendar" && (
-            <CalendarView T={T} events={filtered} year={activeYear} month={calMonth} setMonth={setCalMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={toggleAttendance} myTz={myTz} />
+            <CalendarView T={T} events={filtered} year={activeYear} month={calMonth} setMonth={setCalMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} />
           )}
           {view === "grid" && (
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:10 }}>
-              {filtered.map(e=><EventCard T={T} key={e.id} event={e} attended={attendance[e.id]} onSelect={()=>setSelectedEvent(e)} onToggleAttend={()=>toggleAttendance(e.id)} />)}
+              {filtered.map(e=><EventCard T={T} key={e.id} event={e} attended={attendance[e.id]} onSelect={()=>setSelectedEvent(e)} onToggleAttend={()=>handleToggleAttendance(e.id)} />)}
               {filtered.length===0 && <div style={{ gridColumn:"1/-1", textAlign:"center", color:T.textDim, padding:"60px 0", fontSize:14 }}>No events match.</div>}
             </div>
           )}
@@ -515,13 +624,13 @@ export default function App() {
       {/* MODALS */}
       {selectedEvent && (
         <Modal T={T} onClose={()=>setSelectedEvent(null)}>
-          <EventDetail T={T} event={selectedEvent} attended={attendance[selectedEvent.id]} onToggleAttend={()=>toggleAttendance(selectedEvent.id)} myTz={myTz} compareTz={compareTz} />
+          <EventDetail T={T} event={selectedEvent} attended={attendance[selectedEvent.id]} onToggleAttend={()=>handleToggleAttendance(selectedEvent.id)} myTz={myTz} compareTz={compareTz} onEdit={editCustomEvent} onDelete={deleteCustomEvent} />
         </Modal>
       )}
 
       {adminOpen && (
         <Modal T={T} onClose={()=>setAdminOpen(false)}>
-          <div style={{ fontSize:15, fontWeight:600, marginBottom:14, color:T.text }}>Add event</div>
+          <div style={{ fontSize:15, fontWeight:600, marginBottom:14, color:T.text }}>{editingEvent ? "Edit event" : "Add event"}</div>
           <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
             <Field T={T} label="Event name"><input style={inpSty} value={newEvent.name} onChange={e=>setNewEvent(p=>({...p,name:e.target.value}))} placeholder="e.g. Silverstone Classic" /></Field>
             <Field T={T} label="Circuit / Venue"><input style={inpSty} value={newEvent.circuit} onChange={e=>setNewEvent(p=>({...p,circuit:e.target.value}))} placeholder="e.g. Silverstone Circuit" /></Field>
@@ -546,12 +655,14 @@ export default function App() {
             </div>
             <Field T={T} label="Notes"><input style={inpSty} value={newEvent.notes} onChange={e=>setNewEvent(p=>({...p,notes:e.target.value}))} placeholder="Shot list, gear, contacts…" /></Field>
             <div style={{ display:"flex", gap:8, marginTop:4 }}>
-              <button onClick={()=>setAdminOpen(false)} style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:12, cursor:"pointer", fontWeight:500, flex:1 }}>Cancel</button>
-              <button onClick={addCustomEvent} style={{ padding:"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize:12, cursor:"pointer", fontWeight:500, flex:1 }}>Save event</button>
+              <button onClick={()=>{ setAdminOpen(false); setEditingEvent(null); setNewEvent({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false }); }} style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:12, cursor:"pointer", fontWeight:500, flex:1 }}>Cancel</button>
+              <button onClick={addCustomEvent} style={{ padding:"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize:12, cursor:"pointer", fontWeight:500, flex:1 }}>{editingEvent ? "Save changes" : "Save event"}</button>
             </div>
           </div>
         </Modal>
       )}
+
+      {authOpen && <AuthModal T={T} onClose={()=>setAuthOpen(false)} />}
 
       {tzOpen && (
         <Modal T={T} onClose={()=>setTzOpen(false)}>
@@ -778,7 +889,7 @@ function EventCard({ T, event:e, attended, onSelect, onToggleAttend }) {
 }
 
 // ─── EVENT DETAIL MODAL ──────────────────────────────────────────────────────
-function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz }) {
+function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, onEdit, onDelete }) {
   const meta = SERIES_META[e.series] || { color:"#888" };
   const start = new Date(e.date + "T12:00:00");
   const end = e.endDate ? new Date(e.endDate + "T12:00:00") : null;
@@ -848,6 +959,14 @@ function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz }) 
         </div>
       )}
       {e.notes && <div style={{ marginTop:10, padding:"9px 11px", background:T.bgInput, borderRadius:5, border:`1px solid ${T.border}`, fontSize:12, color:T.textMid, fontStyle:"italic" }}>{e.notes}</div>}
+
+      {/* Edit / Delete — only for custom/personal events */}
+      {onEdit && e.id && typeof e.id === "number" && e.id > 1000000 && (
+        <div style={{ display:"flex", gap:8, marginTop:14 }}>
+          <button onClick={()=>onEdit(e)} style={{ flex:1, padding:"7px", borderRadius:6, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:12, cursor:"pointer", fontWeight:500 }}>✏️ Edit</button>
+          <button onClick={()=>{ if(window.confirm("Delete this event?")) onDelete(e.id); }} style={{ flex:1, padding:"7px", borderRadius:6, border:"1px solid #E8502A40", background:"#E8502A15", color:"#E8502A", fontSize:12, cursor:"pointer", fontWeight:500 }}>🗑 Delete</button>
+        </div>
+      )}
     </div>
   );
 }
