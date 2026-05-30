@@ -396,11 +396,9 @@ export default function App({ session }) {
 
   // Detect mobile (≤768px)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
-  const [orientation, setOrientation] = useState(window.innerWidth);
   useEffect(() => {
     const handler = () => {
       setIsMobile(window.innerWidth <= 768);
-      setOrientation(window.innerWidth);
       if (sidebarOpen) setSidebarOpen(false);
     };
     window.addEventListener("resize", handler);
