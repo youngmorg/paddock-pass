@@ -640,7 +640,7 @@ export default function App({ session }) {
       </header>
 
       {isMobile && coffeeBannerOpen && (
-        <div style={{ background:darkMode?"#1A1010":"#FFF0EE", borderBottom:"1px solid #FF5E5B30", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+        <div style={{ position:"sticky", top:52, zIndex:40, background:darkMode?"#1A1010":"#FFF0EE", borderBottom:"1px solid #FF5E5B30", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
           <a href="https://ko-fi.com/paddock_pass" target="_blank" rel="noopener noreferrer"
             style={{ display:"inline-flex", alignItems:"center", gap:6, color:"#FF5E5B", fontSize:12, fontWeight:600, textDecoration:"none" }}>
             ☕ Buy me a coffee — support Paddock Pass
