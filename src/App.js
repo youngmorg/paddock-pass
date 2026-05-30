@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabase";
+import AdminPanel from "./AdminPanel";
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
 const DARK = {
@@ -315,6 +316,8 @@ export default function App({ session }) {
   const [adminOpen, setAdminOpen] = useState(false);
   const [tzOpen, setTzOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [myTz, setMyTz] = useState("America/Los_Angeles");
   const [compareTz, setCompareTz] = useState("");
   const [customEvents, setCustomEvents] = useState([]);
@@ -324,6 +327,32 @@ export default function App({ session }) {
   const [attendance, setAttendance] = useState(() => {
     try { return JSON.parse(localStorage.getItem("rcAttendance") || "{}"); } catch { return {}; }
   });
+
+  const [masterEvents, setMasterEvents] = useState([]);
+
+  useEffect(() => {
+    supabase.from("master_events").select("*").order("date")
+      .then(({ data }) => {
+        if (data) {
+          setMasterEvents(data.map(e => ({
+            id: e.id,
+            year: e.year,
+            series: e.series,
+            name: e.name,
+            circuit: e.circuit || "",
+            country: e.country || "USA",
+            date: e.date,
+            endDate: e.end_date || "",
+            intl: e.intl || false,
+            camp: e.camp || false,
+            status: e.status || "upcoming",
+            url: e.url || "",
+            sessions: e.sessions || [],
+            fromMaster: true,
+          })));
+        }
+      });
+  }, []);
 
   const [hiddenEvents, setHiddenEvents] = useState({});
 
@@ -356,6 +385,12 @@ export default function App({ session }) {
     await supabase.from("hidden_events").delete().eq("user_id", session.user.id);
   };
 
+  useEffect(() => {
+    if (!session) return;
+    supabase.from("profiles").select("role").eq("id", session.user.id).single()
+      .then(({ data }) => { if (data?.role === "admin") setIsAdmin(true); });
+  }, [session]);
+
   const requireAuth = (action) => { if (!session) { setAuthOpen(true); return; } action(); };
   const handleAddClick = () => requireAuth(() => setAdminOpen(true));
   const handleToggleAttendance = (id) => requireAuth(() => setAttendance(a => ({ ...a, [id]: !a[id] })));
@@ -375,7 +410,7 @@ export default function App({ session }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const showSidebar = isMobile ? sidebarOpen : !sidebarCollapsed;
 
-  const allEvents = useMemo(() => [...BASE_EVENTS, ...customEvents], [customEvents]);
+  const allEvents = useMemo(() => [...masterEvents, ...customEvents], [masterEvents, customEvents]);
 
   const filtered = useMemo(() => {
     return allEvents.filter(e => {
@@ -592,7 +627,10 @@ export default function App({ session }) {
 
           {/* Login / user button */}
           {session ? (
-            <button onClick={handleLogout} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize: isMobile?13:12, cursor:"pointer", fontWeight:500 }}>Log out</button>
+            <div style={{ display:"flex", gap:6 }}>
+              {isAdmin && <button onClick={()=>setAdminPanelOpen(true)} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #FFB80040", background:darkMode?"#1A1A10":T.bgCard, color:"#FFB800", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>⚙ Admin</button>}
+              <button onClick={handleLogout} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize: isMobile?13:12, cursor:"pointer", fontWeight:500 }}>Log out</button>
+            </div>
           ) : (
             <button onClick={()=>setAuthOpen(true)} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #E8502A40", background:darkMode?"#1A1010":T.bgCard, color:"#E8502A", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>Log in</button>
           )}
@@ -699,6 +737,7 @@ export default function App({ session }) {
       )}
 
       {authOpen && <AuthModal T={T} onClose={()=>setAuthOpen(false)} />}
+      {adminPanelOpen && <AdminPanel T={T} onClose={()=>setAdminPanelOpen(false)} />}
 
       {tzOpen && (
         <Modal T={T} onClose={()=>setTzOpen(false)}>
