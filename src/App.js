@@ -509,16 +509,16 @@ export default function App({ session }) {
       <div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
           <SectionLabel T={T} style={{ marginBottom:0 }}>Series</SectionLabel>
-          {filters.series.length>0 && <span onClick={()=>setFilters(f=>({...f,series:[]}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>show all</span>}
+          {filters.hiddenSeries.length === ALL_SERIES.length ? <span onClick={()=>setFilters(f=>({...f,hiddenSeries:[]}))} style={{ fontSize:10, color:"#3DAA4E", cursor:"pointer" }}>select all</span> : <span onClick={()=>setFilters(f=>({...f,hiddenSeries:[...ALL_SERIES]}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear all</span>}
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
           {ALL_SERIES.map(s => {
             const c = (SERIES_META[s]||{color:"#888"}).color;
-            const on = filters.series.includes(s);
+            const hidden = filters.hiddenSeries.includes(s);
             return (
-              <button key={s} onClick={()=>toggleSeries(s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"4px 7px", borderRadius:4, border:`1px solid ${on?c+"60":T.border}`, background:on?c+"18":"transparent", cursor:"pointer", textAlign:"left" }}>
-                <div style={{ width:7, height:7, borderRadius:2, background:c, flexShrink:0 }} />
-                <span style={{ fontSize:11, color:on?T.text:T.textMid }}>{s}</span>
+              <button key={s} onClick={()=>toggleSeries(s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"3px 7px", borderRadius:4, cursor:"pointer", opacity:hidden?0.5:1 }}>
+                <div style={{ width:14, height:14, borderRadius:3, border:`1.5px solid ${hidden?T.border2:c}`, background:hidden?"transparent":c+"22", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{!hidden && <div style={{ width:7, height:7, borderRadius:1, background:c }} />}</div>
+                <span style={{ fontSize:11, color:hidden?T.textMid:T.text }}>{s}</span>
               </button>
             );
           })}
@@ -934,12 +934,16 @@ function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
         {cells.map((d,i) => {
           if (!d) return (
-            <div key={`e${i}`} style={{ background:T.bgSubtle, borderRadius:5, aspectRatio:"1/1" }} />
+            <div key={`e${i}`} style={{ position:"relative", width:"100%" }}>
+              <div style={{ paddingBottom:"100%", position:"relative" }}>
+                <div style={{ position:"absolute", inset:0, background:T.bgSubtle, borderRadius:5 }} />
+              </div>
+            </div>
           );
           const dayEvents = eventsByDay[d] || [];
           const isToday = today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
           return (
-            <div key={d} style={{ background:T.bgCard, borderRadius:5, border:`1px solid ${isToday?"#E8502A40":T.border}`, padding:"5px 4px", overflow:"hidden", aspectRatio:"1/1" }}>
+            <div key={d} style={{ position:"relative", width:"100%" }}><div style={{ paddingBottom:"100%", position:"relative" }}><div style={{ position:"absolute", inset:0, background:T.bgCard, borderRadius:5, border:`1px solid ${isToday?"#E8502A40":T.border}`, padding:"5px 4px", overflow:"hidden" }}>
               <div style={{ fontSize:11, fontWeight:isToday?700:400, color:isToday?"#E8502A":T.textDim, marginBottom:3, textAlign:"right" }}>{d}</div>
               <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
                 {dayEvents.slice(0,3).map(e => {
@@ -952,7 +956,7 @@ function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, 
                 })}
                 {dayEvents.length > 3 && <div style={{ fontSize:9, color:T.textDim, paddingLeft:4 }}>+{dayEvents.length-3} more</div>}
               </div>
-            </div>
+            </div></div></div>
           );
         })}
       </div>
