@@ -402,11 +402,6 @@ export default function App({ session }) {
     await supabase.from("user_preferences").upsert({ id: session.user.id, hidden_series: hiddenSeries, updated_at: new Date().toISOString() }, { onConflict: "id" });
   };
 
-  useEffect(() => {
-    const t = setTimeout(() => setFilters(f => ({ ...f, search: searchInput })), 400);
-    return () => clearTimeout(t);
-  }, [searchInput]);
-
   const requireAuth = (action) => { if (!session) { setAuthOpen(true); return; } action(); };
   const handleAddClick = () => requireAuth(() => setAdminOpen(true));
   const handleToggleAttendance = (id) => requireAuth(() => setAttendance(a => ({ ...a, [id]: !a[id] })));
@@ -537,7 +532,7 @@ export default function App({ session }) {
 
       <div>
         <SectionLabel T={T}>Search</SectionLabel>
-        <input value={searchInput} onChange={e=>setSearchInput(e.target.value)} placeholder="Event, circuit…" style={inpSty} />
+        <input value={searchInput} onChange={e=>{ setSearchInput(e.target.value); if(e.target.value==="") setFilters(f=>({...f,search:""})); }} onKeyDown={e=>{ if(e.key==="Enter") setFilters(f=>({...f,search:searchInput})); }} placeholder="Event, circuit… (Enter to search)" style={inpSty} />
       </div>
 
       <div>
