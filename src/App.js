@@ -373,7 +373,6 @@ export default function App({ session }) {
   }, [filtered]);
 
   const toggleSeries = s => setFilters(f => ({ ...f, series: f.series.includes(s) ? f.series.filter(x=>x!==s) : [...f.series, s] }));
-  const toggleAttendance = id => setAttendance(a => ({ ...a, [id]: !a[id] }));
 
   const [editingEvent, setEditingEvent] = useState(null);
 
