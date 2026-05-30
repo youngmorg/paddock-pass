@@ -317,6 +317,8 @@ export default function App({ session }) {
   const [authOpen, setAuthOpen] = useState(false);
   const [myTz, setMyTz] = useState("America/Los_Angeles");
   const [compareTz, setCompareTz] = useState("");
+  const [masterEvents, setMasterEvents] = useState([]);
+  const [masterLoading, setMasterLoading] = useState(true);
   const [customEvents, setCustomEvents] = useState([]);
   const [newEvent, setNewEvent] = useState({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false });
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -357,6 +359,23 @@ export default function App({ session }) {
     await supabase.from("hidden_events").delete().eq("user_id", session.user.id);
   };
 
+  useEffect(() => {
+    supabase.from("master_events").select("*").order("date")
+      .then(({ data }) => {
+        if (data) {
+          setMasterEvents(data.map(e => ({
+            id: e.id, year: e.year, series: e.series, name: e.name,
+            circuit: e.circuit || "", country: e.country || "USA",
+            date: e.date, endDate: e.end_date || "",
+            intl: e.intl || false, camp: e.camp || false,
+            status: e.status || "upcoming", url: e.url || "",
+            sessions: e.sessions || [], fromMaster: true,
+          })));
+        }
+        setMasterLoading(false);
+      });
+  }, []);
+
   const requireAuth = (action) => { if (!session) { setAuthOpen(true); return; } action(); };
   const handleAddClick = () => requireAuth(() => setAdminOpen(true));
   const handleToggleAttendance = (id) => requireAuth(() => setAttendance(a => ({ ...a, [id]: !a[id] })));
@@ -376,7 +395,7 @@ export default function App({ session }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const showSidebar = isMobile ? sidebarOpen : !sidebarCollapsed;
 
-  const allEvents = useMemo(() => [...BASE_EVENTS, ...customEvents], [customEvents]);
+  const allEvents = useMemo(() => [...masterEvents, ...customEvents], [masterEvents, customEvents]);
 
   const filtered = useMemo(() => {
     return allEvents.filter(e => {
@@ -660,7 +679,15 @@ export default function App({ session }) {
 
         {/* MAIN CONTENT */}
         <main style={{ flex:1, padding: isMobile?"14px":"18px 20px", overflowY:"auto", minWidth:0 }}>
-          {view === "timeline" && (
+          {masterLoading ? (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"80px 20px", gap:16 }}>
+              <svg width="48" height="48" viewBox="200 30 280 280" xmlns="http://www.w3.org/2000/svg" style={{ opacity:0.4 }}>
+                <rect x="200" y="30" width="280" height="280" rx="64" fill="#111111"/>
+                <text x="340" y="208" fontFamily="system-ui" fontSize="148" fontWeight="800" fill="#ffffff" textAnchor="middle" letterSpacing="-10">PP</text>
+              </svg>
+              <div style={{ color:"#555", fontSize:13 }}>Loading schedule...</div>
+            </div>
+          ) : view === "timeline" && (
             <TimelineView T={T} byMonth={byMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} compareTz={compareTz} />
           )}
           {view === "calendar" && (
