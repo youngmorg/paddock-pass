@@ -313,7 +313,7 @@ export default function App({ session }) {
 
   const [activeYear, setActiveYear] = useState(2026);
   const [view, setView] = useState("timeline");
-  const [filters, setFilters] = useState({ series: [], country: "", camp: false, intl: false, search: "", hidePersonal: false, nurbOnly: false });
+  const [filters, setFilters] = useState({ hiddenSeries: [], country: "", camp: false, intl: false, search: "", hidePersonal: false, nurbOnly: false });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
@@ -412,7 +412,7 @@ export default function App({ session }) {
     return allEvents.filter(e => {
       if (e.year !== activeYear) return false;
       if (filters.hidePersonal && e.series === "Personal") return false;
-      if (filters.series.length && filters.series.includes(e.series)) return false;
+      if (filters.hiddenSeries && filters.hiddenSeries.length && filters.hiddenSeries.includes(e.series)) return false;
       if (filters.country && e.country !== filters.country) return false;
       if (filters.camp && !e.camp) return false;
       if (filters.nurbOnly && !e.circuit?.toLowerCase().includes('nürburg') && !e.circuit?.toLowerCase().includes('nurburgring')) return false;
@@ -435,7 +435,7 @@ export default function App({ session }) {
     return m;
   }, [filtered]);
 
-  const toggleSeries = s => setFilters(f => ({ ...f, series: f.series.includes(s) ? f.series.filter(x=>x!==s) : [...f.series, s] }));
+  const toggleSeries = s => setFilters(f => ({ ...f, hiddenSeries: f.hiddenSeries.includes(s) ? f.hiddenSeries.filter(x=>x!==s) : [...f.hiddenSeries, s] }));
 
   const [editingEvent, setEditingEvent] = useState(null);
 
