@@ -395,15 +395,21 @@ export default function App({ session }) {
   useEffect(() => { try { localStorage.setItem("rcAttendance", JSON.stringify(attendance)); } catch {} }, [attendance]);
 
   // Detect mobile (≤768px)
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
   useEffect(() => {
     const handler = () => {
-      setIsMobile(window.innerWidth <= 768);
-      if (sidebarOpen) setSidebarOpen(false);
+      const mobile = window.innerWidth <= 900;
+      setIsMobile(mobile);
+      if (mobile && sidebarOpen) setSidebarOpen(false);
+      if (mobile && view === "grid") setView("timeline");
     };
     window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
-  }, [sidebarOpen]);
+    window.addEventListener("orientationchange", handler);
+    return () => {
+      window.removeEventListener("resize", handler);
+      window.removeEventListener("orientationchange", handler);
+    };
+  }, [sidebarOpen, view]);
 
   // On desktop, sidebar is open by default; on mobile, closed
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
