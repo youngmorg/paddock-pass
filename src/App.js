@@ -921,8 +921,6 @@ function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, 
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
-  const totalRows = Math.ceil((firstDay + daysInMonth) / 7);
-
   return (
     <div style={{ display:"flex", flexDirection:"column" }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, flexShrink:0 }}>
