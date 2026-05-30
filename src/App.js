@@ -45,18 +45,11 @@ function parseSessionTime(dateStr, timeStr) {
     // Build an ISO string in the source timezone, convert to UTC via Intl
     const naive = `${dateStr}T${String(hours).padStart(2,"0")}:${String(mins).padStart(2,"0")}:00`;
     // Use Intl to find offset of srcTz at that moment
-    const tmpDate = new Date(naive + "Z"); // treat as UTC temporarily
-    const fmt = new Intl.DateTimeFormat("en-US", {
-      timeZone: srcTz, hour: "numeric", minute: "numeric", hour12: false,
-      year: "numeric", month: "2-digit", day: "2-digit"
-    });
     // Binary search isn't needed — use a simpler offset approach
     // Get the UTC offset for srcTz at the approximate date
     const probe = new Date(`${dateStr}T12:00:00Z`);
-    const srcStr = probe.toLocaleString("en-US", { timeZone: srcTz, hour12: false, hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
     // Use offsetFromTz utility
     const offsetMs = getOffsetMs(srcTz, probe);
-    const utcMs = probe.setHours(0,0,0,0) + hours * 3600000 + mins * 60000 - offsetMs;
     // Actually just do it properly:
     const d = new Date(`${dateStr}T${String(hours).padStart(2,"0")}:${String(mins).padStart(2,"0")}:00`);
     const off = getOffsetMs(srcTz, d);
