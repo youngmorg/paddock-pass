@@ -117,6 +117,8 @@ const SERIES_META = {
   "Formula E":      { color: "#00AAFF" },
   "MotoGP":         { color: "#CC0000" },
   "ALMS":           { color: "#FF6B00" },
+  "F2":             { color: "#0090D0" },
+  "F3":             { color: "#E84C9B" },
   "Personal":       { color: "#7B68EE" },
 };
 
