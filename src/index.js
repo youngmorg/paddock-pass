@@ -2,16 +2,39 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import Auth from './Auth';
+import { supabase } from './supabase';
 import reportWebVitals from './reportWebVitals';
+
+function Root() {
+  const [session, setSession] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (loading) return (
+    <div style={{ minHeight:"100vh", background:"#0C0C0E", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ color:"#555", fontSize:14 }}>Loading...</div>
+    </div>
+  );
+
+  return session ? <App session={session} /> : <Auth />;
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <Root />
   </React.StrictMode>
 );
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
