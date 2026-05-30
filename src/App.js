@@ -395,7 +395,35 @@ export default function App() {
             style={{ background:"none", border:"none", cursor:"pointer", color:T.textMid, fontSize:18, padding:"4px 2px", lineHeight:1, flexShrink:0 }}
             title="Toggle sidebar"
           >☰</button>
-          <div style={{ width:26, height:26, borderRadius:5, background:"linear-gradient(135deg,#E8502A,#B02010)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, flexShrink:0, color:"#fff" }}>PP</div>
+          <svg width="32" height="32" viewBox="200 30 280 280" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink:0 }}>
+            <rect x="200" y="30" width="280" height="280" rx="64" fill="#111111"/>
+            <text x="340" y="208" fontFamily="system-ui,-apple-system,'SF Pro Display',Helvetica,sans-serif" fontSize="148" fontWeight="800" fill="#ffffff" textAnchor="middle" letterSpacing="-10">PP</text>
+            <g transform="translate(424, 254)">
+              <circle cx="0" cy="0" r="37" fill="#1a1a1a"/>
+              <circle cx="0" cy="0" r="37" fill="none" stroke="#272727" strokeWidth="8"/>
+              <circle cx="0" cy="0" r="29" fill="#141414"/>
+              <path d="M -20 -20 A 28 28 0 0 1 20 -20" fill="none" stroke="#E040FB" strokeWidth="5" strokeLinecap="round"/>
+              <path d="M 20 -20 A 28 28 0 0 1 20 20" fill="none" stroke="#E040FB" strokeWidth="5" strokeLinecap="round"/>
+              <path d="M 20 20 A 28 28 0 0 1 -20 20" fill="none" stroke="#E040FB" strokeWidth="5" strokeLinecap="round"/>
+              <path d="M -20 20 A 28 28 0 0 1 -20 -20" fill="none" stroke="#E040FB" strokeWidth="5" strokeLinecap="round"/>
+              <circle cx="0" cy="0" r="20" fill="#0e0e0e"/>
+              <circle cx="0" cy="0" r="18.5" fill="#9a9a9a"/>
+              <g fill="#5a5a5a">
+                <polygon points="0,-5.5 -1.8,-5 -0.8,-18 0.8,-18 1.8,-5"/>
+                <polygon points="0,-5.5 -1.8,-5 -0.8,-18 0.8,-18 1.8,-5" transform="rotate(40)"/>
+                <polygon points="0,-5.5 -1.8,-5 -0.8,-18 0.8,-18 1.8,-5" transform="rotate(80)"/>
+                <polygon points="0,-5.5 -1.8,-5 -0.8,-18 0.8,-18 1.8,-5" transform="rotate(120)"/>
+                <polygon points="0,-5.5 -1.8,-5 -0.8,-18 0.8,-18 1.8,-5" transform="rotate(160)"/>
+                <polygon points="0,-5.5 -1.8,-5 -0.8,-18 0.8,-18 1.8,-5" transform="rotate(200)"/>
+                <polygon points="0,-5.5 -1.8,-5 -0.8,-18 0.8,-18 1.8,-5" transform="rotate(240)"/>
+                <polygon points="0,-5.5 -1.8,-5 -0.8,-18 0.8,-18 1.8,-5" transform="rotate(280)"/>
+                <polygon points="0,-5.5 -1.8,-5 -0.8,-18 0.8,-18 1.8,-5" transform="rotate(320)"/>
+              </g>
+              <circle cx="0" cy="0" r="6" fill="#3a3a3a" stroke="#4a4a4a" strokeWidth="1"/>
+              <circle cx="0" cy="0" r="3.5" fill="#292929"/>
+              <circle cx="0" cy="0" r="1.5" fill="#555"/>
+            </g>
+          </svg>
           <span style={{ fontSize:15, fontWeight:600, letterSpacing:-0.3 }}>Paddock Pass</span>
           {!isMobile && <span style={{ fontSize:10, color:T.textFaint }}>v0.3</span>}
         </div>
