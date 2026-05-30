@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
+import AdminPanel from "./AdminPanel";
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
 const DARK = {
@@ -314,6 +315,8 @@ export default function App({ session }) {
   const [filters, setFilters] = useState({ series: [], country: "", camp: false, intl: false, search: "", hidePersonal: false });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [tzOpen, setTzOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [myTz, setMyTz] = useState("America/Los_Angeles");
@@ -376,6 +379,12 @@ export default function App({ session }) {
         setMasterLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    supabase.from("profiles").select("role").eq("id", session.user.id).single()
+      .then(({ data }) => { if (data?.role === "admin") setIsAdmin(true); });
+  }, [session]);
 
   const requireAuth = (action) => { if (!session) { setAuthOpen(true); return; } action(); };
   const handleAddClick = () => requireAuth(() => setAdminOpen(true));
@@ -620,7 +629,10 @@ export default function App({ session }) {
 
           {/* Login / user button */}
           {session ? (
-            <button onClick={handleLogout} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize: isMobile?13:12, cursor:"pointer", fontWeight:500 }}>Log out</button>
+            <div style={{ display:"flex", gap:6 }}>
+              {isAdmin && <button onClick={()=>setAdminPanelOpen(true)} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #FFB80040", background:darkMode?"#1A1A10":T.bgCard, color:"#FFB800", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>⚙ Admin</button>}
+              <button onClick={handleLogout} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize: isMobile?13:12, cursor:"pointer", fontWeight:500 }}>Log out</button>
+            </div>
           ) : (
             <button onClick={()=>setAuthOpen(true)} style={{ padding: isMobile?"6px 11px":"5px 12px", borderRadius:5, border:"1px solid #E8502A40", background:darkMode?"#1A1010":T.bgCard, color:"#E8502A", fontSize: isMobile?13:12, cursor:"pointer", fontWeight:600 }}>Log in</button>
           )}
@@ -745,6 +757,7 @@ export default function App({ session }) {
       )}
 
       {authOpen && <AuthModal T={T} onClose={()=>setAuthOpen(false)} />}
+      {adminPanelOpen && <AdminPanel T={T} onClose={()=>setAdminPanelOpen(false)} />}
 
       {tzOpen && (
         <Modal T={T} onClose={()=>setTzOpen(false)}>
