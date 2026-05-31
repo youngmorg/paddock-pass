@@ -442,7 +442,7 @@ export default function App({ session }) {
             date: e.date, endDate: e.end_date || "",
             intl: e.intl || false, camp: e.camp || false,
             status: e.status || "upcoming", url: e.url || "",
-            sessions: e.sessions || [], fromMaster: true,
+            sessions: e.sessions || [], tags: e.tags || [], fromMaster: true,
           })));
         }
         setMasterLoading(false);
