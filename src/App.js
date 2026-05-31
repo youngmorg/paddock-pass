@@ -327,6 +327,7 @@ function AuthModal({ T, onClose }) {
 export default function App({ session }) {
   const [darkMode, setDarkMode] = useState(true);
   const T = darkMode ? DARK : LIGHT;
+  useEffect(() => { document.body.style.background = T.bg; }, [T.bg]);
 
   const [activeYear, setActiveYear] = useState(2026);
   const [view, setView] = useState("timeline");
