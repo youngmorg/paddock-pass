@@ -550,8 +550,23 @@ export default function App({ session }) {
       const id = Date.now();
       setCustomEvents(prev => [...prev, { ...newEvent, series, id, year: parseInt(newEvent.date.split("-")[0]) || activeYear, status:"upcoming", sessions:[] }]);
     }
+    const savedDate = newEvent.date;
     setNewEvent({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false, tags:[] });
     setAdminOpen(false);
+    setTimeout(() => {
+      const all = document.querySelectorAll("[data-date]");
+      let closest = null;
+      for (const el of all) {
+        if (el.getAttribute("data-date") === savedDate) { closest = el; break; }
+      }
+      if (closest) {
+        const offset = closest.getBoundingClientRect().top + window.scrollY - 100;
+        window.scrollTo({ top: offset, behavior: "smooth" });
+      } else {
+        const anchor = document.getElementById("upcoming-anchor");
+        if (anchor) window.scrollTo({ top: anchor.getBoundingClientRect().top + window.scrollY - 100, behavior: "smooth" });
+      }
+    }, 300);
   };
 
   const deleteCustomEvent = (id) => {
@@ -861,13 +876,13 @@ export default function App({ session }) {
 
       {/* MODALS */}
       {selectedEvent && (
-        <Modal T={T} onClose={()=>setSelectedEvent(null)}>
+        <Modal T={T} onClose={()=>{ setSelectedEvent(null); setTimeout(() => { const el = document.getElementById('upcoming-anchor'); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 100, behavior: 'smooth' }); }, 100); }}>
           <EventDetail T={T} event={selectedEvent} attended={attendance[selectedEvent.id]} onToggleAttend={()=>handleToggleAttendance(selectedEvent.id)} myTz={myTz} compareTz={compareTz} onEdit={editCustomEvent} onDelete={deleteCustomEvent} onHide={()=>{ handleHideEvent(selectedEvent.id); setSelectedEvent(null); }} getSeriesColor={getSeriesColor} />
         </Modal>
       )}
 
       {adminOpen && (
-        <Modal T={T} onClose={()=>setAdminOpen(false)}>
+        <Modal T={T} onClose={()=>{ setAdminOpen(false); setTimeout(() => { const el = document.getElementById('upcoming-anchor'); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 100, behavior: 'smooth' }); }, 100); }}>
           <div style={{ fontSize:15, fontWeight:600, marginBottom:14, color:T.text }}>{editingEvent ? "Edit event" : "Add event"}</div>
           <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
             <Field T={T} label="Event name"><input style={inpSty} value={newEvent.name} onChange={e=>setNewEvent(p=>({...p,name:e.target.value}))} placeholder="e.g. Silverstone Classic" /></Field>
@@ -985,6 +1000,17 @@ function TzRow({ T, label, time, primary }) {
 // ─── TIMELINE VIEW ───────────────────────────────────────────────────────────
 function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, compareTz, getSeriesColor }) {
   const upcomingRef = useRef(null);
+
+  const scrollToUpcoming = () => {
+    setTimeout(() => {
+      if (upcomingRef.current) {
+        const offset = upcomingRef.current.getBoundingClientRect().top + window.scrollY - 100;
+        window.scrollTo({ top: offset, behavior: "smooth" });
+      }
+    }, 100);
+  };
+
+
   const today = new Date();
   today.setHours(0,0,0,0);
 
@@ -1042,7 +1068,7 @@ function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, 
 
       {/* Divider — this is the scroll target */}
       {pastMonths.length > 0 && (
-        <div ref={upcomingRef} style={{ display:"flex", alignItems:"center", gap:10, margin:"8px 0 24px" }}>
+        <div id="upcoming-anchor" ref={upcomingRef} style={{ display:"flex", alignItems:"center", gap:10, margin:"8px 0 24px" }}>
           <div style={{ flex:1, height:1, background:T.border }} />
           <div style={{ fontSize:10, fontWeight:700, color:T.textFaint, letterSpacing:1.5, textTransform:"uppercase", whiteSpace:"nowrap" }}>Upcoming</div>
           <div style={{ flex:1, height:1, background:T.border }} />
@@ -1163,6 +1189,7 @@ function EventRow({ T, event:e, attended, onSelect, onToggleAttend, myTz, compar
     <div style={{ display:"grid", gridTemplateColumns:"44px 4px 1fr auto", alignItems:"stretch", background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:7, overflow:"hidden", cursor:"pointer" }}
       onMouseEnter={ev=>ev.currentTarget.style.borderColor=T.border2}
       onMouseLeave={ev=>ev.currentTarget.style.borderColor=T.border}
+      data-date={e.date}
       onClick={onSelect}>
       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"8px 0", gap:1 }}>
         <div style={{ fontSize:9, color:T.textDim, textTransform:"uppercase", letterSpacing:1 }}>{MONTHS_SHORT[d.getMonth()]}</div>
