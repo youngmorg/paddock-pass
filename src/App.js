@@ -609,7 +609,8 @@ export default function App({ session }) {
 
   const ALL_SERIES = [...new Set([...allEvents.map(e=>e.series), 'Personal'])].sort();
   const ALL_COUNTRIES = [...new Set(allEvents.map(e=>e.country))].sort();
-  const attendedCount = allEvents.filter(e=>e.year===activeYear&&attendance[e.id]).length;
+  const attendedCount = allEvents.filter(e=>e.year===activeYear&&attendance[e.id]&&new Date(e.date)<=new Date()).length;
+  const plannedCount = allEvents.filter(e=>e.year===activeYear&&attendance[e.id]&&new Date(e.date)>new Date()).length;
 
   const inpSty = { width:"100%", background:T.bgInput, border:`1px solid ${T.border2}`, borderRadius:5, padding:"6px 9px", color:T.text, fontSize:12 };
 
@@ -766,6 +767,7 @@ export default function App({ session }) {
       <div style={{ marginTop:"auto", borderTop:`1px solid ${T.border}`, paddingTop:12, display:"flex", flexDirection:"column", gap:6 }}>
         <StatR T={T} label="Showing"       value={filtered.length} />
         <StatR T={T} label="Attended"      value={attendedCount}   accent="#E8502A" />
+        <StatR T={T} label="Planned"       value={plannedCount}    accent="#4A7FC1" />
         <StatR T={T} label="International" value={filtered.filter(e=>e.intl).length} accent="#3DAA4E" />
         <StatR T={T} label="Campable"      value={filtered.filter(e=>e.camp).length}  accent="#B86B1B" />
         {session && Object.keys(hiddenEvents).length > 0 && (
@@ -1316,7 +1318,7 @@ function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, on
           <div style={{ fontSize:12, color:T.textDim, marginTop:3 }}>{e.circuit}</div>
         </div>
         <button onClick={onToggleAttend} style={{ padding:"7px 12px", borderRadius:6, border:`1.5px solid ${attended?"#E8502A":T.border2}`, background:attended?"#E8502A22":"transparent", color:attended?"#E8502A":T.textMid, fontSize:11, cursor:"pointer", whiteSpace:"nowrap", fontWeight:600 }}>
-          {attended?"✓ Attended":"Mark attended"}
+          {attended ? (new Date(e.date) > new Date() ? "✓ Planned" : "✓ Attended") : (new Date(e.date) > new Date() ? "Plan trip" : "Mark attended")}
         </button>
       </div>
 
