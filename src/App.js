@@ -12,9 +12,9 @@ const DARK = {
   border:     "#1E1E22",
   border2:    "#2A2A2E",
   text:       "#E8E6E1",
-  textMid:    "#888",
-  textDim:    "#555",
-  textFaint:  "#444",
+  textMid:    "#AAA",
+  textDim:    "#888",
+  textFaint:  "#999",
   headerBg:   "#0C0C0E",
 };
 const LIGHT = {
@@ -26,9 +26,9 @@ const LIGHT = {
   border:     "#E0DED9",
   border2:    "#D0CEC9",
   text:       "#1A1A1C",
-  textMid:    "#666",
-  textDim:    "#999",
-  textFaint:  "#BBB",
+  textMid:    "#444",
+  textDim:    "#555",
+  textFaint:  "#777",
   headerBg:   "#FFFFFF",
 };
 
@@ -97,9 +97,24 @@ function tzAbbr(tz) {
 }
 
 // ─── SERIES META ─────────────────────────────────────────────────────────────
+const REGION_MAP = {
+  'USA': 'North America', 'Canada': 'North America', 'Mexico': 'North America',
+  'UK': 'Europe', 'Germany': 'Europe', 'France': 'Europe', 'Italy': 'Europe',
+  'Spain': 'Europe', 'Belgium': 'Europe', 'Netherlands': 'Europe', 'Austria': 'Europe',
+  'Hungary': 'Europe', 'Portugal': 'Europe', 'Monaco': 'Europe', 'Azerbaijan': 'Europe',
+  'Czech Republic': 'Europe', 'Kazakhstan': 'Europe',
+  'Japan': 'Asia Pacific', 'China': 'Asia Pacific', 'Australia': 'Asia Pacific',
+  'Indonesia': 'Asia Pacific', 'Malaysia': 'Asia Pacific', 'Singapore': 'Asia Pacific',
+  'South Korea': 'Asia Pacific', 'Thailand': 'Asia Pacific',
+  'UAE': 'Middle East', 'Bahrain': 'Middle East', 'Qatar': 'Middle East', 'Saudi Arabia': 'Middle East',
+  'Brazil': 'South America', 'Argentina': 'South America',
+  'South Africa': 'Africa',
+};
+const ALL_REGIONS = ['North America', 'Europe', 'Asia Pacific', 'Middle East', 'South America', 'Africa'];
+
 const CATEGORIES = [
   { label: "Open Wheel",     series: ["F1","F2","F3","IndyCar","Formula E"] },
-  { label: "GT / Endurance", series: ["WEC","IMSA","ELMS","ALMS","SRO","Nurburgring","24hr"] },
+  { label: "GT / Endurance", series: ["WEC","IMSA","ELMS","ALMS","SRO","Super GT","Nurburgring","24hr"] },
   { label: "Stock Car",      series: ["NASCAR"] },
   { label: "Off-Road",       series: ["Off-Road","Pikes Peak"] },
   { label: "Motorcycle",     series: ["MotoGP"] },
@@ -131,6 +146,8 @@ const SERIES_META = {
   "ALMS":           { color: "#FF6B00" },
   "F2":             { color: "#0090D0" },
   "F3":             { color: "#E84C9B" },
+  "Super GT":       { color: "#FF0033" },
+  "Super Formula":  { color: "#0066CC" },
   "Personal":       { color: "#7B68EE" },
 };
 
@@ -331,12 +348,12 @@ export default function App({ session }) {
 
   const [activeYear, setActiveYear] = useState(2026);
   const [view, setView] = useState("timeline");
-  const [filters, setFilters] = useState({ hiddenSeries: [], activeTags: [], country: "", camp: false, intl: false, search: "", hidePersonal: false });
+  const [filters, setFilters] = useState({ hiddenSeries: [], activeTags: [], activeRegions: [], country: "", camp: false, intl: false, search: "", hidePersonal: false });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [seriesColors, setSeriesColors] = useState({});
   const [colorPickerSeries, setColorPickerSeries] = useState(null);
-  const [collapsedCategories, setCollapsedCategories] = useState({});
+  const [collapsedCategories, setCollapsedCategories] = useState(() => Object.fromEntries(CATEGORIES.map(c => [c.label, true])));
   const toggleCategory = (label) => setCollapsedCategories(p => ({ ...p, [label]: !p[label] }));
   const longPressTimer = useRef(null);
 
@@ -504,6 +521,10 @@ export default function App({ session }) {
       if (e.year !== activeYear) return false;
       if (filters.hidePersonal && e.series === "Personal") return false;
       if (filters.hiddenSeries && filters.hiddenSeries.length && filters.hiddenSeries.includes(e.series)) return false;
+      if (filters.activeRegions && filters.activeRegions.length > 0) {
+        const region = REGION_MAP[e.country] || 'Other';
+        if (!filters.activeRegions.includes(region)) return false;
+      }
       if (filters.activeTags && filters.activeTags.length > 0) {
         const eventTags = e.tags || [];
         if (!filters.activeTags.some(t => eventTags.includes(t))) return false;
@@ -617,8 +638,11 @@ export default function App({ session }) {
       </div>
 
       <div>
-        <SectionLabel T={T}>Search</SectionLabel>
-        <SearchInput inpSty={{...inpSty, width:"100%", boxSizing:"border-box"}} onSearch={v=>setFilters(f=>({...f,search:v}))} />
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <SectionLabel T={T} style={{ marginBottom:0 }}>Search</SectionLabel>
+          {filters.search && <span onClick={()=>setFilters(f=>({...f,search:""}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear</span>}
+        </div>
+        <SearchInput inpSty={{...inpSty, width:"100%", boxSizing:"border-box"}} onSearch={v=>setFilters(f=>({...f,search:v}))} onClear={()=>setFilters(f=>({...f,search:""}))} />
       </div>
 
       <div>
@@ -684,7 +708,38 @@ export default function App({ session }) {
       </div>
 
       <div>
-        <SectionLabel T={T}>Country</SectionLabel>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <SectionLabel T={T} style={{ marginBottom:0 }}>Country</SectionLabel>
+        </div>
+        <select value={filters.country} onChange={e=>setFilters(f=>({...f,country:e.target.value}))} style={inpSty}>
+          <option value="">All countries</option>
+          {ALL_COUNTRIES.map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <SectionLabel T={T} style={{ marginBottom:0 }}>Region</SectionLabel>
+          {(filters.activeRegions||[]).length > 0 && <span onClick={()=>setFilters(f=>({...f,activeRegions:[]}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear</span>}
+        </div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+          {ALL_REGIONS.map(region => {
+            const active = (filters.activeRegions||[]).includes(region);
+            return (
+              <div key={region} onClick={()=>setFilters(f=>({ ...f, activeRegions: (f.activeRegions||[]).includes(region) ? (f.activeRegions||[]).filter(r=>r!==region) : [...(f.activeRegions||[]), region] }))}
+                style={{ fontSize:10, padding:"3px 8px", borderRadius:10, border:`1px solid ${active?"#E8502A":T.border2}`, background:active?"#E8502A22":T.bgCard, color:active?"#E8502A":T.textMid, cursor:"pointer", userSelect:"none", fontWeight:active?600:400 }}>
+                {region}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <SectionLabel T={T} style={{ marginBottom:0 }}>Country</SectionLabel>
+          {filters.country && <span onClick={()=>setFilters(f=>({...f,country:""}))} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear</span>}
+        </div>
         <select value={filters.country} onChange={e=>setFilters(f=>({...f,country:e.target.value}))} style={inpSty}>
           <option value="">All countries</option>
           {ALL_COUNTRIES.map(c=><option key={c}>{c}</option>)}
@@ -1350,8 +1405,9 @@ function Toggle({ T, label, value, onChange }) {
   );
 }
 
-function SearchInput({ inpSty, onSearch }) {
+function SearchInput({ inpSty, onSearch, onClear }) {
   const [val, setVal] = useState("");
+  useEffect(() => { if (onClear) setVal(""); }, [onClear]);
   return (
     <input
       value={val}
