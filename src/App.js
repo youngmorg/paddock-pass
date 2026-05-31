@@ -778,7 +778,7 @@ export default function App({ session }) {
           {/* View switcher */}
           <div style={{ display:"flex", background:T.bgCard, border:`1px solid ${T.border2}`, borderRadius:6, overflow:"hidden" }}>
             {(isMobile ? [["timeline","☰"],["calendar","⊞"]] : [["timeline","☰"],["calendar","⊡"],["grid","⊞"]]).map(([v,icon])=>(
-              <button key={v} onClick={()=>{ setView(v); if(v==="calendar") setCalMonth(new Date().getMonth()); }} style={{ padding: isMobile?"6px 10px":"5px 10px", background:view===v?T.border2:"transparent", border:"none", color:view===v?T.text:T.textDim, fontSize: isMobile?13:12, cursor:"pointer" }} title={v}>
+              <button key={v} onClick={()=>{ setView(v); if(v==="calendar") { setCalMonth(new Date().getMonth()); setTimeout(() => window.scrollTo({ top: 0, behavior: "instant" }), 50); } }} style={{ padding: isMobile?"6px 10px":"5px 10px", background:view===v?T.border2:"transparent", border:"none", color:view===v?T.text:T.textDim, fontSize: isMobile?13:12, cursor:"pointer" }} title={v}>
                 {isMobile ? icon : `${icon} ${v}`}
               </button>
             ))}
