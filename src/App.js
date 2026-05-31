@@ -542,7 +542,7 @@ export default function App({ session }) {
       }
       return true;
     }).filter(e => !hiddenEvents[e.id] && !hiddenEvents[String(e.id)]).sort((a,b) => new Date(a.date) - new Date(b.date));
-  }, [allEvents, activeYear, filters, hiddenEvents]);
+  }, [allEvents, activeYear, filters, hiddenEvents, attendance, calendarMode]);
 
   const byMonth = useMemo(() => {
     const m = {};
