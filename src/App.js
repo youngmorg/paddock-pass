@@ -347,6 +347,7 @@ export default function App({ session }) {
   useEffect(() => { document.body.style.background = T.bg; }, [T.bg]);
 
   const [activeYear, setActiveYear] = useState(2026);
+  const [calendarMode, setCalendarMode] = useState("globe");
   const [view, setView] = useState("timeline");
   const [filters, setFilters] = useState({ hiddenSeries: [], activeTags: [], activeRegions: [], country: "", camp: false, intl: false, search: "", hidePersonal: false });
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -519,6 +520,9 @@ export default function App({ session }) {
   const filtered = useMemo(() => {
     return allEvents.filter(e => {
       if (e.year !== activeYear) return false;
+      if (calendarMode === "plane") {
+        if (!attendance[e.id]) return false;
+      }
       if (filters.hidePersonal && e.series === "Personal") return false;
       if (filters.hiddenSeries && filters.hiddenSeries.length && filters.hiddenSeries.includes(e.series)) return false;
       if (filters.activeRegions && filters.activeRegions.length > 0) {
@@ -629,6 +633,13 @@ export default function App({ session }) {
       )}
 
       <div>
+        {/* Globe / Plane mode slider */}
+        <div style={{ display:"flex", alignItems:"center", background:T.bgInput, borderRadius:20, padding:"3px", marginBottom:14, position:"relative" }}>
+          <div style={{ position:"absolute", left: calendarMode==="globe"?"3px":"calc(50% + 0px)", width:"calc(50% - 3px)", height:"calc(100% - 6px)", background:T.bgCard, borderRadius:16, transition:"left 0.2s ease", border:`1px solid ${T.border2}` }} />
+          <div onClick={()=>setCalendarMode("globe")} style={{ flex:1, textAlign:"center", padding:"6px 0", cursor:"pointer", fontSize:16, position:"relative", zIndex:1 }}>🌍</div>
+          <div onClick={()=>{ if(!session){ setAuthOpen(true); return; } setCalendarMode("plane"); }} style={{ flex:1, textAlign:"center", padding:"6px 0", cursor:"pointer", fontSize:16, position:"relative", zIndex:1 }}>✈️</div>
+        </div>
+
         <SectionLabel T={T}>Year</SectionLabel>
         <div style={{ display:"flex", gap:5 }}>
           {[2026,2027].map(y=>(
@@ -916,7 +927,7 @@ export default function App({ session }) {
               <div style={{ color:"#555", fontSize:13 }}>Loading schedule...</div>
             </div>
           ) : view === "timeline" && (
-            <TimelineView T={T} byMonth={byMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} compareTz={compareTz} getSeriesColor={getSeriesColor} />
+            <TimelineView T={T} byMonth={byMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} compareTz={compareTz} getSeriesColor={getSeriesColor} calendarMode={calendarMode} />
           )}
           {view === "calendar" && (
             <CalendarView T={T} events={filtered} year={activeYear} month={calMonth} setMonth={setCalMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} getSeriesColor={getSeriesColor} />
@@ -1054,7 +1065,7 @@ function TzRow({ T, label, time, primary }) {
 }
 
 // ─── TIMELINE VIEW ───────────────────────────────────────────────────────────
-function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, compareTz, getSeriesColor }) {
+function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, compareTz, getSeriesColor, calendarMode }) {
   const upcomingRef = useRef(null);
 
 
@@ -1105,7 +1116,7 @@ function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, 
         {MONTHS_LONG[Number(mo)]}
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-        {events.map(e=><EventRow T={T} key={e.id} event={e} attended={attendance[e.id]} onSelect={()=>onSelect(e)} onToggleAttend={()=>onToggleAttend(e.id)} myTz={myTz} compareTz={compareTz} getSeriesColor={getSeriesColor} />)}
+        {events.map(e=><EventRow T={T} key={e.id} event={e} attended={attendance[e.id]} onSelect={()=>onSelect(e)} onToggleAttend={()=>onToggleAttend(e.id)} myTz={myTz} compareTz={compareTz} getSeriesColor={getSeriesColor} calendarMode={calendarMode} />)}
       </div>
     </div>
   );
@@ -1225,7 +1236,7 @@ function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, 
 }
 
 // ─── EVENT ROW ───────────────────────────────────────────────────────────────
-function EventRow({ T, event:e, attended, onSelect, onToggleAttend, myTz, compareTz, getSeriesColor }) {
+function EventRow({ T, event:e, attended, onSelect, onToggleAttend, myTz, compareTz, getSeriesColor, calendarMode }) {
   const meta = SERIES_META[e.series] || { color:"#888" };
   const d = new Date(e.date + "T12:00:00");
   const firstSession = e.sessions?.find(s => s.time && s.time !== "TBC" && !s.time.toLowerCase().includes("all day"));
