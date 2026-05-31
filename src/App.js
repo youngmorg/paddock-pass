@@ -107,7 +107,7 @@ const CATEGORIES = [
   { label: "Personal",       series: ["Personal"] },
 ];
 
-const ALL_TAGS = ["oval","road course","street circuit","gt3","hypercar","24hr","motorcycle"];
+const ALL_TAGS = ["oval","road course","street circuit","gt3","hypercar","24hr","open wheel","motorcycle"];
 
 const SERIES_META = {
   "IMSA":           { color: "#E8502A" },

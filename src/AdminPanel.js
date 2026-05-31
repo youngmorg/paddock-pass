@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
-const ALL_TAGS = ["oval","road course","street circuit","gt3","hypercar","24hr","motorcycle"];
+const ALL_TAGS = ["oval","road course","street circuit","gt3","hypercar","24hr","open wheel","motorcycle"];
 
 const SERIES_OPTIONS = ["F1","F2","F3","IndyCar","Formula E","WEC","IMSA","ELMS","ALMS","SRO","Nurburgring","24hr","NASCAR","Off-Road","Pikes Peak","MotoGP","GridLife","Car Week","Ferrari Chall.","Cultural","Formula Drift","Personal"];
 
