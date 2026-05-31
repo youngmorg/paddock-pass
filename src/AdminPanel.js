@@ -1,11 +1,35 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
-const SERIES_OPTIONS = ["IMSA","IndyCar","NASCAR","WEC","F1","SRO","Formula Drift","Formula E","MotoGP","ALMS","F2","F3","GridLife","ELMS","Off-Road","Pikes Peak","Ferrari Chall.","Car Week","24hr","Cultural","Nurburgring","Personal"];
+const ALL_TAGS = ["oval","road course","street circuit","gt3","hypercar","24hr","motorcycle"];
 
-const EMPTY_EVENT = { year:2026, series:"IMSA", name:"", circuit:"", country:"USA", date:"", end_date:"", intl:false, camp:false, status:"upcoming", url:"", sessions:"" };
+const SERIES_OPTIONS = ["F1","F2","F3","IndyCar","Formula E","WEC","IMSA","ELMS","ALMS","SRO","Nurburgring","24hr","NASCAR","Off-Road","Pikes Peak","MotoGP","GridLife","Car Week","Ferrari Chall.","Cultural","Formula Drift","Personal"];
+
+const EMPTY_EVENT = { year:2026, series:"IMSA", name:"", circuit:"", country:"USA", date:"", end_date:"", intl:false, camp:false, status:"upcoming", url:"", sessions:"", tags:[] };
 
 export default function AdminPanel({ T, onClose }) {
+  const [adminTab, setAdminTab] = useState("events");
+  const [seriesColors, setSeriesColors] = useState([]);
+  const [colorPickerSeries, setColorPickerSeries] = useState(null);
+
+  const COLOR_PALETTE = [
+    "#E8002D", "#E8502A", "#FFB800", "#F5E642",
+    "#3DAA4E", "#00A859", "#0D7A5F", "#00AAFF",
+    "#4A7FC1", "#1B5EA6", "#6B3FA0", "#E84C9B",
+    "#B86B1B", "#888888", "#444444", "#CCCCCC",
+  ];
+
+  useEffect(() => {
+    if (adminTab === "colors") {
+      supabase.from("series_colors").select("series, color").order("series")
+        .then(({ data }) => { if (data) setSeriesColors(data); });
+    }
+  }, [adminTab]);
+
+  const saveAdminColor = async (series, color) => {
+    await supabase.from("series_colors").upsert({ series, color }, { onConflict: "series" });
+    setSeriesColors(prev => prev.map(r => r.series === series ? { ...r, color } : r));
+  };
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // event object being edited
@@ -31,7 +55,7 @@ export default function AdminPanel({ T, onClose }) {
     setEditing(e);
     setAdding(false);
     setForm({
-      year: e.year, series: e.series, name: e.name, circuit: e.circuit || "",
+      year: e.year, series: e.series, name: e.name, circuit: e.circuit || "", tags: e.tags || [],
       country: e.country || "USA", date: e.date, end_date: e.end_date || "",
       intl: e.intl || false, camp: e.camp || false, status: e.status || "upcoming",
       url: e.url || "", sessions: e.sessions ? JSON.stringify(e.sessions) : ""
@@ -95,8 +119,42 @@ export default function AdminPanel({ T, onClose }) {
           <button onClick={onClose} style={{ background:"none", border:"none", color:T.textDim, fontSize:18, cursor:"pointer" }}>✕</button>
         </div>
 
+        {/* Tabs */}
+        <div style={{ display:"flex", borderBottom:`1px solid ${T.border}`, padding:"0 20px" }}>
+          {[["events","Events"],["colors","Series Colors"]].map(([tab,label]) => (
+            <button key={tab} onClick={()=>setAdminTab(tab)} style={{ padding:"10px 16px", background:"none", border:"none", borderBottom:`2px solid ${adminTab===tab?"#E8502A":"transparent"}`, color:adminTab===tab?T.text:T.textDim, fontSize:13, fontWeight:adminTab===tab?600:400, cursor:"pointer" }}>{label}</button>
+          ))}
+        </div>
+
+        {/* Colors Tab */}
+        {adminTab === "colors" && (
+          <div style={{ padding:"18px 20px" }}>
+            <div style={{ fontSize:12, color:T.textDim, marginBottom:14 }}>Click a color swatch to change it globally for all users (unless they have a personal override).</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {seriesColors.map(({ series, color }) => (
+                <div key={series} style={{ display:"flex", alignItems:"center", gap:12, padding:"6px 10px", borderRadius:7, background:T.bgCard, border:`1px solid ${T.border}` }}>
+                  <div onClick={()=>setColorPickerSeries(colorPickerSeries===series?null:series)} style={{ width:24, height:24, borderRadius:5, background:color, cursor:"pointer", border:`2px solid ${T.border2}`, flexShrink:0 }} />
+                  <span style={{ fontSize:13, color:T.text, flex:1 }}>{series}</span>
+                  <span style={{ fontSize:11, color:T.textDim }}>{color}</span>
+                </div>
+              ))}
+            </div>
+            {colorPickerSeries && (
+              <div style={{ marginTop:16, padding:14, background:T.bgCard, borderRadius:10, border:`1px solid ${T.border2}` }}>
+                <div style={{ fontSize:12, fontWeight:600, color:T.text, marginBottom:10 }}>Editing: {colorPickerSeries}</div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:8 }}>
+                  {COLOR_PALETTE.map(col => (
+                    <div key={col} onClick={()=>{ saveAdminColor(colorPickerSeries, col); setColorPickerSeries(null); }}
+                      style={{ aspectRatio:"1/1", borderRadius:5, background:col, cursor:"pointer", border: seriesColors.find(r=>r.series===colorPickerSeries)?.color===col?"3px solid white":"2px solid transparent" }} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Edit / Add form */}
-        {(editing || adding) && (
+        {adminTab === "events" && (editing || adding) && (
           <div style={{ padding:"18px 20px", borderBottom:`1px solid ${T.border}`, background:T.bg }}>
             <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:14 }}>{editing ? `Editing: ${editing.name}` : "Add new event"}</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
@@ -126,11 +184,11 @@ export default function AdminPanel({ T, onClose }) {
               </div>
               <div>
                 <div style={labelSty}>Start date *</div>
-                <input type="date" style={inpSty} value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} />
+                <input type="date" style={{...inpSty, colorScheme:"dark"}} value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} />
               </div>
               <div>
                 <div style={labelSty}>End date</div>
-                <input type="date" style={inpSty} value={form.end_date} onChange={e=>setForm(f=>({...f,end_date:e.target.value}))} />
+                <input type="date" style={{...inpSty, colorScheme:"dark"}} value={form.end_date} onChange={e=>setForm(f=>({...f,end_date:e.target.value}))} />
               </div>
               <div>
                 <div style={labelSty}>Status</div>
@@ -153,6 +211,18 @@ export default function AdminPanel({ T, onClose }) {
                 </label>
               </div>
               <div style={{ gridColumn:"1/-1" }}>
+                <div style={labelSty}>Tags</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
+                  {ALL_TAGS.map(tag => {
+                    const active = (form.tags||[]).includes(tag);
+                    return (
+                      <div key={tag} onClick={()=>setForm(f=>({ ...f, tags: active ? (f.tags||[]).filter(t=>t!==tag) : [...(f.tags||[]), tag] }))}
+                        style={{ fontSize:11, padding:"3px 10px", borderRadius:10, border:`1px solid ${active?"#E8502A":"#444"}`, background:active?"#E8502A22":"transparent", color:active?"#E8502A":"#aaa", cursor:"pointer", userSelect:"none" }}>
+                        {tag}
+                      </div>
+                    );
+                  })}
+                </div>
                 <div style={labelSty}>Sessions (JSON) — optional</div>
                 <textarea style={{ ...inpSty, height:70, resize:"vertical", fontFamily:"monospace", fontSize:11 }}
                   value={form.sessions} onChange={e=>setForm(f=>({...f,sessions:e.target.value}))}
@@ -182,8 +252,7 @@ export default function AdminPanel({ T, onClose }) {
           <div style={{ fontSize:11, color:T.textDim }}>{filtered.length} events</div>
         </div>
 
-        {/* Event list */}
-        <div style={{ maxHeight:400, overflowY:"auto" }}>
+        {adminTab === "events" && <div style={{ maxHeight:400, overflowY:"auto" }}>
           {loading ? (
             <div style={{ padding:40, textAlign:"center", color:T.textDim }}>Loading...</div>
           ) : filtered.map(e => (
@@ -197,7 +266,7 @@ export default function AdminPanel({ T, onClose }) {
               <button onClick={()=>deleteEvent(e.id)} style={{ padding:"4px 10px", borderRadius:5, border:"1px solid #E8502A40", background:"#E8502A15", color:"#E8502A", fontSize:11, cursor:"pointer" }}>Delete</button>
             </div>
           ))}
-        </div>
+        </div>}
 
       </div>
     </div>

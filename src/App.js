@@ -97,6 +97,18 @@ function tzAbbr(tz) {
 }
 
 // ─── SERIES META ─────────────────────────────────────────────────────────────
+const CATEGORIES = [
+  { label: "Open Wheel",     series: ["F1","F2","F3","IndyCar","Formula E"] },
+  { label: "GT / Endurance", series: ["WEC","IMSA","ELMS","ALMS","SRO","Nurburgring","24hr"] },
+  { label: "Stock Car",      series: ["NASCAR"] },
+  { label: "Off-Road",       series: ["Off-Road","Pikes Peak"] },
+  { label: "Motorcycle",     series: ["MotoGP"] },
+  { label: "Culture",        series: ["GridLife","Car Week","Ferrari Chall.","Cultural","Formula Drift"] },
+  { label: "Personal",       series: ["Personal"] },
+];
+
+const ALL_TAGS = ["oval","road course","street circuit","gt3","hypercar","24hr","motorcycle"];
+
 const SERIES_META = {
   "IMSA":           { color: "#E8502A" },
   "IndyCar":        { color: "#4A7FC1" },
@@ -318,10 +330,59 @@ export default function App({ session }) {
 
   const [activeYear, setActiveYear] = useState(2026);
   const [view, setView] = useState("timeline");
-  const [filters, setFilters] = useState({ hiddenSeries: [], country: "", camp: false, intl: false, search: "", hidePersonal: false });
-  const [searchInput, setSearchInput] = useState("");
+  const [filters, setFilters] = useState({ hiddenSeries: [], activeTags: [], country: "", camp: false, intl: false, search: "", hidePersonal: false });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [seriesColors, setSeriesColors] = useState({});
+  const [colorPickerSeries, setColorPickerSeries] = useState(null);
+  const [collapsedCategories, setCollapsedCategories] = useState({});
+  const toggleCategory = (label) => setCollapsedCategories(p => ({ ...p, [label]: !p[label] }));
+  const longPressTimer = useRef(null);
+
+  const COLOR_PALETTE = [
+    "#E8002D", "#E8502A", "#FFB800", "#F5E642",
+    "#3DAA4E", "#00A859", "#0D7A5F", "#00AAFF",
+    "#4A7FC1", "#1B5EA6", "#6B3FA0", "#E84C9B",
+    "#B86B1B", "#888888", "#444444", "#CCCCCC",
+  ];
+
+  const saveUserSeriesColor = async (series, color) => {
+    if (!session) return;
+    await supabase.from("user_series_colors").upsert({ user_id: session.user.id, series, color }, { onConflict: "user_id,series" });
+    setSeriesColors(prev => ({ ...prev, [series]: color }));
+  };
+
+  const resetUserSeriesColor = async (series) => {
+    if (!session) return;
+    await supabase.from("user_series_colors").delete().eq("user_id", session.user.id).eq("series", series);
+    // Reload defaults
+    const { data: defaults } = await supabase.from("series_colors").select("series, color").eq("series", series);
+    if (defaults?.[0]) setSeriesColors(prev => ({ ...prev, [series]: defaults[0].color }));
+  };
+
+  // Load series colors: master defaults + user overrides
+  useEffect(() => {
+    const loadColors = async () => {
+      // Load master defaults from DB
+      const { data: defaults } = await supabase.from("series_colors").select("series, color");
+      const colors = {};
+      if (defaults) defaults.forEach(r => { colors[r.series] = r.color; });
+
+      // Merge user overrides if logged in
+      if (session) {
+        const { data: overrides } = await supabase.from("user_series_colors").select("series, color").eq("user_id", session.user.id);
+        if (overrides) overrides.forEach(r => { colors[r.series] = r.color; });
+      }
+
+      setSeriesColors(colors);
+    };
+    loadColors();
+  }, [session]);
+
+  // Helper to get color for a series
+  const getSeriesColor = (series) => {
+    return seriesColors[series] || (SERIES_META[series]||{color:"#888"}).color;
+  };
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [tzOpen, setTzOpen] = useState(false);
@@ -331,7 +392,7 @@ export default function App({ session }) {
   const [masterEvents, setMasterEvents] = useState([]);
   const [masterLoading, setMasterLoading] = useState(true);
   const [customEvents, setCustomEvents] = useState([]);
-  const [newEvent, setNewEvent] = useState({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false });
+  const [newEvent, setNewEvent] = useState({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false, tags:[] });
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [coffeeBannerOpen, setCoffeeBannerOpen] = useState(true);
@@ -442,6 +503,10 @@ export default function App({ session }) {
       if (e.year !== activeYear) return false;
       if (filters.hidePersonal && e.series === "Personal") return false;
       if (filters.hiddenSeries && filters.hiddenSeries.length && filters.hiddenSeries.includes(e.series)) return false;
+      if (filters.activeTags && filters.activeTags.length > 0) {
+        const eventTags = e.tags || [];
+        if (!filters.activeTags.some(t => eventTags.includes(t))) return false;
+      }
       if (filters.country && e.country !== filters.country) return false;
       if (filters.camp && !e.camp) return false;
       if (filters.intl && !e.intl) return false;
@@ -485,7 +550,7 @@ export default function App({ session }) {
       const id = Date.now();
       setCustomEvents(prev => [...prev, { ...newEvent, series, id, year: parseInt(newEvent.date.split("-")[0]) || activeYear, status:"upcoming", sessions:[] }]);
     }
-    setNewEvent({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false });
+    setNewEvent({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false, tags:[] });
     setAdminOpen(false);
   };
 
@@ -495,13 +560,13 @@ export default function App({ session }) {
   };
 
   const editCustomEvent = (e) => {
-    setNewEvent({ name:e.name, circuit:e.circuit||"", country:e.country||"USA", date:e.date, endDate:e.endDate||"", series:e.series==="Personal"?"IMSA":e.series, intl:e.intl||false, camp:e.camp||false, notes:e.notes||"", personal:e.series==="Personal" });
+    setNewEvent({ name:e.name, circuit:e.circuit||"", country:e.country||"USA", date:e.date, endDate:e.endDate||"", series:e.series==="Personal"?"IMSA":e.series, intl:e.intl||false, camp:e.camp||false, notes:e.notes||"", personal:e.series==="Personal", tags:e.tags||[] });
     setEditingEvent(e.id);
     setSelectedEvent(null);
     setAdminOpen(true);
   };
 
-  const ALL_SERIES = [...new Set(allEvents.map(e=>e.series))].sort();
+  const ALL_SERIES = [...new Set([...allEvents.map(e=>e.series), 'Personal'])].sort();
   const ALL_COUNTRIES = [...new Set(allEvents.map(e=>e.country))].sort();
   const attendedCount = allEvents.filter(e=>e.year===activeYear&&attendance[e.id]).length;
 
@@ -537,25 +602,68 @@ export default function App({ session }) {
 
       <div>
         <SectionLabel T={T}>Search</SectionLabel>
-        <input value={searchInput} onChange={e=>{ setSearchInput(e.target.value); if(e.target.value==="") setFilters(f=>({...f,search:""})); }} onKeyDown={e=>{ if(e.key==="Enter") setFilters(f=>({...f,search:searchInput})); }} placeholder="Event, circuit… (Enter to search)" style={inpSty} />
+        <SearchInput inpSty={{...inpSty, width:"100%", boxSizing:"border-box"}} onSearch={v=>setFilters(f=>({...f,search:v}))} />
       </div>
 
       <div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
           <SectionLabel T={T} style={{ marginBottom:0 }}>Series</SectionLabel>
-          {filters.hiddenSeries.length === ALL_SERIES.length ? <span onClick={()=>{ setFilters(f=>({...f,hiddenSeries:[]})); saveHiddenSeries([]); }} style={{ fontSize:10, color:"#3DAA4E", cursor:"pointer" }}>select all</span> : <span onClick={()=>{ setFilters(f=>({...f,hiddenSeries:[...ALL_SERIES]})); saveHiddenSeries([...ALL_SERIES]); }} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear all</span>}
+          {filters.hiddenSeries.length === ALL_SERIES.length ? <span onClick={()=>{ setFilters(f=>({...f,hiddenSeries:[],activeTags:[]})); saveHiddenSeries([]); }} style={{ fontSize:10, color:"#3DAA4E", cursor:"pointer" }}>select all</span> : <span onClick={()=>{ setFilters(f=>({...f,hiddenSeries:[...ALL_SERIES],activeTags:[...ALL_TAGS]})); saveHiddenSeries([...ALL_SERIES]); }} style={{ fontSize:10, color:"#E8502A", cursor:"pointer" }}>clear all</span>}
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-          {ALL_SERIES.map(s => {
-            const c = (SERIES_META[s]||{color:"#888"}).color;
-            const hidden = filters.hiddenSeries.includes(s);
+          {CATEGORIES.map(({ label, series }) => {
+            const allHidden = series.every(s => filters.hiddenSeries.includes(s));
+            const someHidden = series.some(s => filters.hiddenSeries.includes(s));
+            const collapsed = collapsedCategories[label];
             return (
-              <div key={s} onClick={()=>toggleSeries(s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"3px 7px", borderRadius:4, cursor:"pointer" }}>
-                <div style={{ width:10, height:10, borderRadius:2, flexShrink:0, background:hidden?"transparent":c, border:`1.5px solid ${hidden?T.textDim:c}` }} />
-                <span style={{ fontSize:11, color:hidden?T.textDim:T.text }}>{s}</span>
+              <div key={label}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 4px", borderRadius:4, userSelect:"none" }}>
+                  <div onClick={()=>toggleCategory(label)} style={{ fontSize:10, color:T.text, width:10, flexShrink:0, cursor:"pointer", fontWeight:600 }}>{collapsed ? "▶" : "▼"}</div>
+                  <div onClick={()=>{
+                    const next = allHidden ? filters.hiddenSeries.filter(s=>!series.includes(s)) : [...new Set([...filters.hiddenSeries, ...series])];
+                    setFilters(f=>({...f,hiddenSeries:next})); saveHiddenSeries(next);
+                  }} style={{ width:10, height:10, borderRadius:2, flexShrink:0, cursor:"pointer", background:allHidden?"transparent":someHidden?"#88888855":"#88888822", border:`1.5px solid ${allHidden?T.border2:"#888"}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    {!allHidden && <div style={{ width:6, height:6, borderRadius:1, background:"#888" }} />}
+                  </div>
+                  <span onClick={()=>toggleCategory(label)} style={{ fontSize:11, fontWeight:600, color:allHidden?T.textDim:T.text, flex:1, cursor:"pointer" }}>{label}</span>
+                </div>
+                {!collapsed && series.map(s => {
+                  const c = getSeriesColor(s);
+                  const hidden = filters.hiddenSeries.includes(s);
+                  return (
+                    <div key={s}
+                      onClick={()=>toggleSeries(s)}
+                      onMouseDown={()=>{ longPressTimer.current = setTimeout(()=>setColorPickerSeries(s), 750); }}
+                      onMouseUp={()=>clearTimeout(longPressTimer.current)}
+                      onMouseLeave={()=>clearTimeout(longPressTimer.current)}
+                      onTouchStart={()=>{ longPressTimer.current = setTimeout(()=>setColorPickerSeries(s), 750); }}
+                      onTouchEnd={()=>clearTimeout(longPressTimer.current)}
+                      style={{ display:"flex", alignItems:"center", gap:7, padding:"3px 7px 3px 22px", borderRadius:4, cursor:"pointer", userSelect:"none" }}>
+                      <div style={{ width:9, height:9, borderRadius:2, flexShrink:0, background:hidden?"transparent":c, border:`1.5px solid ${hidden?T.border2:c}` }} />
+                      <span style={{ fontSize:11, color:hidden?T.textDim:T.text }}>{s}</span>
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
+        </div>
+        <div style={{ marginTop:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+            <SectionLabel T={T} style={{ marginBottom:0 }}>Discipline</SectionLabel>
+            {filters.activeTags.length > 0 && <span onClick={()=>setFilters(f=>({...f,activeTags:[]}))} style={{ fontSize:10, color:"#3DAA4E", cursor:"pointer" }}>clear all</span>}
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+            {ALL_TAGS.map(tag => {
+              const active = (filters.activeTags||[]).includes(tag);
+              return (
+                <div key={tag} onClick={()=>setFilters(f=>({ ...f, activeTags: (f.activeTags||[]).includes(tag) ? (f.activeTags||[]).filter(t=>t!==tag) : [...(f.activeTags||[]), tag] }))}
+                  style={{ fontSize:10, padding:"3px 8px", borderRadius:10, border:`1px solid ${active?"#E8502A":T.border2}`, background:active?"#E8502A22":T.bgCard, color:active?"#E8502A":T.textMid, cursor:"pointer", userSelect:"none", fontWeight:active?600:400 }}>
+                  {tag}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -737,10 +845,10 @@ export default function App({ session }) {
               <div style={{ color:"#555", fontSize:13 }}>Loading schedule...</div>
             </div>
           ) : view === "timeline" && (
-            <TimelineView T={T} byMonth={byMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} compareTz={compareTz} />
+            <TimelineView T={T} byMonth={byMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} compareTz={compareTz} getSeriesColor={getSeriesColor} />
           )}
           {view === "calendar" && (
-            <CalendarView T={T} events={filtered} year={activeYear} month={calMonth} setMonth={setCalMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} />
+            <CalendarView T={T} events={filtered} year={activeYear} month={calMonth} setMonth={setCalMonth} attendance={attendance} onSelect={setSelectedEvent} onToggleAttend={handleToggleAttendance} myTz={myTz} getSeriesColor={getSeriesColor} />
           )}
           {view === "grid" && (
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:10 }}>
@@ -754,7 +862,7 @@ export default function App({ session }) {
       {/* MODALS */}
       {selectedEvent && (
         <Modal T={T} onClose={()=>setSelectedEvent(null)}>
-          <EventDetail T={T} event={selectedEvent} attended={attendance[selectedEvent.id]} onToggleAttend={()=>handleToggleAttendance(selectedEvent.id)} myTz={myTz} compareTz={compareTz} onEdit={editCustomEvent} onDelete={deleteCustomEvent} />
+          <EventDetail T={T} event={selectedEvent} attended={attendance[selectedEvent.id]} onToggleAttend={()=>handleToggleAttendance(selectedEvent.id)} myTz={myTz} compareTz={compareTz} onEdit={editCustomEvent} onDelete={deleteCustomEvent} onHide={()=>{ handleHideEvent(selectedEvent.id); setSelectedEvent(null); }} getSeriesColor={getSeriesColor} />
         </Modal>
       )}
 
@@ -765,8 +873,8 @@ export default function App({ session }) {
             <Field T={T} label="Event name"><input style={inpSty} value={newEvent.name} onChange={e=>setNewEvent(p=>({...p,name:e.target.value}))} placeholder="e.g. Silverstone Classic" /></Field>
             <Field T={T} label="Circuit / Venue"><input style={inpSty} value={newEvent.circuit} onChange={e=>setNewEvent(p=>({...p,circuit:e.target.value}))} placeholder="e.g. Silverstone Circuit" /></Field>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9 }}>
-              <Field T={T} label="Start date"><input type="date" style={inpSty} value={newEvent.date} onChange={e=>setNewEvent(p=>({...p,date:e.target.value}))} /></Field>
-              <Field T={T} label="End date"><input type="date" style={inpSty} value={newEvent.endDate} onChange={e=>setNewEvent(p=>({...p,endDate:e.target.value}))} /></Field>
+              <Field T={T} label="Start date"><input type="date" style={{...inpSty, colorScheme: "dark"}} value={newEvent.date} onChange={e=>setNewEvent(p=>({...p,date:e.target.value}))} /></Field>
+              <Field T={T} label="End date"><input type="date" style={{...inpSty, colorScheme: "dark"}} value={newEvent.endDate} onChange={e=>setNewEvent(p=>({...p,endDate:e.target.value}))} /></Field>
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9 }}>
               <Field T={T} label="Series">
@@ -784,6 +892,19 @@ export default function App({ session }) {
               ))}
             </div>
             <Field T={T} label="Notes"><input style={inpSty} value={newEvent.notes} onChange={e=>setNewEvent(p=>({...p,notes:e.target.value}))} placeholder="Shot list, gear, contacts…" /></Field>
+            <Field T={T} label="Tags">
+              <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                {ALL_TAGS.map(tag => {
+                  const active = (newEvent.tags||[]).includes(tag);
+                  return (
+                    <div key={tag} onClick={()=>setNewEvent(p=>({ ...p, tags: active ? (p.tags||[]).filter(t=>t!==tag) : [...(p.tags||[]), tag] }))}
+                      style={{ fontSize:11, padding:"3px 10px", borderRadius:10, border:`1px solid ${active?"#E8502A":T.border2}`, background:active?"#E8502A22":"transparent", color:active?"#E8502A":T.textMid, cursor:"pointer", userSelect:"none" }}>
+                      {tag}
+                    </div>
+                  );
+                })}
+              </div>
+            </Field>
             <div style={{ display:"flex", gap:8, marginTop:4 }}>
               <button onClick={()=>{ setAdminOpen(false); setEditingEvent(null); setNewEvent({ name:"", circuit:"", country:"USA", date:"", endDate:"", series:"IMSA", intl:false, camp:false, notes:"", personal:false }); }} style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${T.border2}`, background:T.bgCard, color:T.textMid, fontSize:12, cursor:"pointer", fontWeight:500, flex:1 }}>Cancel</button>
               <button onClick={addCustomEvent} style={{ padding:"5px 12px", borderRadius:5, border:"1px solid #3DAA4E40", background:darkMode?"#1A2A1A":T.bgCard, color:"#3DAA4E", fontSize:12, cursor:"pointer", fontWeight:500, flex:1 }}>{editingEvent ? "Save changes" : "Save event"}</button>
@@ -793,6 +914,21 @@ export default function App({ session }) {
       )}
 
       {authOpen && <AuthModal T={T} onClose={()=>setAuthOpen(false)} />}
+      {colorPickerSeries && (
+        <div onClick={()=>setColorPickerSeries(null)} style={{ position:"fixed", inset:0, zIndex:500, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:T.bgCard, border:`1px solid ${T.border2}`, borderRadius:10, padding:18, width:220, boxShadow:"0 8px 32px rgba(0,0,0,0.4)" }}>
+            <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:12 }}>Color for {colorPickerSeries}</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
+              {COLOR_PALETTE.map(col => (
+                <div key={col} onClick={()=>{ saveUserSeriesColor(colorPickerSeries, col); setColorPickerSeries(null); }}
+                  style={{ width:"100%", aspectRatio:"1/1", borderRadius:6, background:col, cursor:"pointer", border: getSeriesColor(colorPickerSeries)===col ? "3px solid white" : "2px solid transparent", boxSizing:"border-box" }} />
+              ))}
+            </div>
+            {session && <div onClick={()=>{ resetUserSeriesColor(colorPickerSeries); setColorPickerSeries(null); }} style={{ fontSize:11, color:T.textDim, textAlign:"center", cursor:"pointer", textDecoration:"underline" }}>Reset to default</div>}
+            {!session && <div style={{ fontSize:11, color:T.textDim, textAlign:"center" }}>Log in to save color preferences</div>}
+          </div>
+        </div>
+      )}
       {adminPanelOpen && <AdminPanel T={T} onClose={()=>setAdminPanelOpen(false)} />}
 
       {tzOpen && (
@@ -847,7 +983,7 @@ function TzRow({ T, label, time, primary }) {
 }
 
 // ─── TIMELINE VIEW ───────────────────────────────────────────────────────────
-function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, compareTz }) {
+function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, compareTz, getSeriesColor }) {
   const upcomingRef = useRef(null);
   const today = new Date();
   today.setHours(0,0,0,0);
@@ -894,7 +1030,7 @@ function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, 
         {MONTHS_LONG[Number(mo)]}
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-        {events.map(e=><EventRow T={T} key={e.id} event={e} attended={attendance[e.id]} onSelect={()=>onSelect(e)} onToggleAttend={()=>onToggleAttend(e.id)} myTz={myTz} compareTz={compareTz} />)}
+        {events.map(e=><EventRow T={T} key={e.id} event={e} attended={attendance[e.id]} onSelect={()=>onSelect(e)} onToggleAttend={()=>onToggleAttend(e.id)} myTz={myTz} compareTz={compareTz} getSeriesColor={getSeriesColor} />)}
       </div>
     </div>
   );
@@ -920,7 +1056,7 @@ function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, 
 }
 
 // ─── CALENDAR VIEW ───────────────────────────────────────────────────────────
-function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, myTz }) {
+function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, myTz, getSeriesColor }) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const today = new Date();
@@ -981,7 +1117,7 @@ function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, 
               <div style={{ fontSize:11, fontWeight:isToday?700:400, color:isToday?"#E8502A":T.textDim, marginBottom:3, textAlign:"right" }}>{d}</div>
               <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
                 {dayEvents.slice(0,3).map(e => {
-                  const c = (SERIES_META[e.series]||{color:"#888"}).color;
+                  const c = getSeriesColor(e.series);
                   return (
                     <div key={e.id} onClick={()=>onSelect(e)} style={{ fontSize:10, padding:"2px 5px", borderRadius:3, background:c+"25", color:c, cursor:"pointer", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", borderLeft:`2px solid ${c}`, lineHeight:1.4 }} title={e.name}>
                       {e.name}
@@ -1000,7 +1136,7 @@ function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, 
           <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
             {events.filter(e=>{ const mo = new Date(e.date+"T12:00:00").getMonth(); return mo===month; }).map(e=>(
               <div key={e.id} onClick={()=>onSelect(e)} style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", padding:"5px 8px", borderRadius:5, background:T.bgCard }}>
-                <div style={{ width:6, height:6, borderRadius:2, background:(SERIES_META[e.series]||{color:"#888"}).color, flexShrink:0 }} />
+                <div style={{ width:6, height:6, borderRadius:2, background:getSeriesColor(e.series), flexShrink:0 }} />
                 <span style={{ fontSize:12, color:T.textMid, flex:1 }}>{e.name}</span>
                 <span style={{ fontSize:11, color:T.textDim }}>{new Date(e.date+"T12:00:00").getDate()}{e.endDate ? `–${new Date(e.endDate+"T12:00:00").getDate()}` : ""}</span>
                 {attendance[e.id] && <span style={{ fontSize:10, color:"#E8502A" }}>✓</span>}
@@ -1014,7 +1150,7 @@ function CalendarView({ T, events, year, month, setMonth, attendance, onSelect, 
 }
 
 // ─── EVENT ROW ───────────────────────────────────────────────────────────────
-function EventRow({ T, event:e, attended, onSelect, onToggleAttend, myTz, compareTz }) {
+function EventRow({ T, event:e, attended, onSelect, onToggleAttend, myTz, compareTz, getSeriesColor }) {
   const meta = SERIES_META[e.series] || { color:"#888" };
   const d = new Date(e.date + "T12:00:00");
   const firstSession = e.sessions?.find(s => s.time && s.time !== "TBC" && !s.time.toLowerCase().includes("all day"));
@@ -1054,7 +1190,7 @@ function EventRow({ T, event:e, attended, onSelect, onToggleAttend, myTz, compar
 }
 
 // ─── EVENT CARD ──────────────────────────────────────────────────────────────
-function EventCard({ T, event:e, attended, onSelect, onToggleAttend }) {
+function EventCard({ T, event:e, attended, onSelect, onToggleAttend, getSeriesColor }) {
   const meta = SERIES_META[e.series] || { color:"#888" };
   const d = new Date(e.date + "T12:00:00");
   return (
@@ -1080,7 +1216,7 @@ function EventCard({ T, event:e, attended, onSelect, onToggleAttend }) {
 }
 
 // ─── EVENT DETAIL MODAL ──────────────────────────────────────────────────────
-function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, onEdit, onDelete }) {
+function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, onEdit, onDelete, onHide, getSeriesColor }) {
   const meta = SERIES_META[e.series] || { color:"#888" };
   const start = new Date(e.date + "T12:00:00");
   const end = e.endDate ? new Date(e.endDate + "T12:00:00") : null;
@@ -1158,6 +1294,12 @@ function EventDetail({ T, event:e, attended, onToggleAttend, myTz, compareTz, on
           <button onClick={()=>{ if(window.confirm("Delete this event?")) onDelete(e.id); }} style={{ flex:1, padding:"7px", borderRadius:6, border:"1px solid #E8502A40", background:"#E8502A15", color:"#E8502A", fontSize:12, cursor:"pointer", fontWeight:500 }}>🗑 Delete</button>
         </div>
       )}
+      {/* Hide — for all non-personal events */}
+      {onHide && !(e.id > 1000000) && (
+        <div style={{ marginTop:10 }}>
+          <button onClick={onHide} style={{ width:"100%", padding:"7px", borderRadius:6, border:`1px solid ${T.border2}`, background:"transparent", color:T.textDim, fontSize:12, cursor:"pointer", fontWeight:500 }}>Hide this event</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1184,6 +1326,19 @@ function Toggle({ T, label, value, onChange }) {
         <div style={{ position:"absolute", top:2.5, left:value?15:2.5, width:12, height:12, borderRadius:"50%", background:"#fff", transition:"left .2s" }} />
       </div>
     </label>
+  );
+}
+
+function SearchInput({ inpSty, onSearch }) {
+  const [val, setVal] = useState("");
+  return (
+    <input
+      value={val}
+      onChange={e=>{ setVal(e.target.value); if(e.target.value==="") onSearch(""); }}
+      onKeyDown={e=>{ if(e.key==="Enter") onSearch(val); }}
+      placeholder="Event, circuit… (Enter to search)"
+      style={inpSty}
+    />
   );
 }
 
