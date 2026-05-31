@@ -1001,14 +1001,7 @@ function TzRow({ T, label, time, primary }) {
 function TimelineView({ T, byMonth, attendance, onSelect, onToggleAttend, myTz, compareTz, getSeriesColor }) {
   const upcomingRef = useRef(null);
 
-  const scrollToUpcoming = () => {
-    setTimeout(() => {
-      if (upcomingRef.current) {
-        const offset = upcomingRef.current.getBoundingClientRect().top + window.scrollY - 100;
-        window.scrollTo({ top: offset, behavior: "smooth" });
-      }
-    }, 100);
-  };
+
 
 
   const today = new Date();
